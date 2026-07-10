@@ -84,7 +84,7 @@ window.CCB = window.CCB || {};
     state.opp.board = msg.board;
     if(msg.damage > 0){
       state.self.hp = Math.max(0, state.self.hp - msg.damage);
-      CCB.showToast('敵: ' + msg.names.join(' / '), true);
+      CCB.showSkillPopup(msg.names, msg.damage, true);
     }
     if(msg.over){
       state.over = true;

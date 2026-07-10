@@ -25,7 +25,7 @@ window.CCB = window.CCB || {};
       CCB.renderAll();
       return res;
     },
-    aiTick: () => { const r = CCB.aiTick(); CCB.renderAll(); return r; },
+    aiTick: () => CCB.commitAiTick(),
     isOver: () => CCB.state.over,
     mode: () => CCB.mode,
     reset: () => { CCB.startCpuGame(); CCB.renderAll(); },

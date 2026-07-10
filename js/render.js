@@ -13,7 +13,9 @@ window.CCB = window.CCB || {};
   const selfHpNum = document.getElementById('selfHpNum');
   const oppHpFill = document.getElementById('oppHpFill');
   const oppHpNum = document.getElementById('oppHpNum');
-  const toastEl = document.getElementById('toast');
+  const skillPopupEl = document.getElementById('skillPopup');
+  const skillLinesEl = document.getElementById('skillLines');
+  const skillDamageEl = document.getElementById('skillDamage');
   const overlayEl = document.getElementById('overlay');
   const overlayTitleEl = document.getElementById('overlayTitle');
   const restartBtn = document.getElementById('restartBtn');
@@ -152,19 +154,33 @@ window.CCB = window.CCB || {};
     }
   }
 
-  let toastTimer = null;
-  function showToast(text, isEnemy){
-    toastEl.textContent = text;
-    toastEl.className = isEnemy ? 'enemy' : '';
-    clearTimeout(toastTimer);
-    playAnim(toastEl, 'show');
-    toastTimer = setTimeout(() => { toastEl.classList.remove('show'); }, 1400);
+  let skillTimer = null;
+  function showSkillPopup(names, damage, isEnemy){
+    clearTimeout(skillTimer);
+    skillLinesEl.innerHTML = '';
+    names.forEach((name, i) => {
+      const line = document.createElement('div');
+      line.className = 'skill-line';
+      line.style.animationDelay = (i * 0.08) + 's';
+      line.textContent = name;
+      skillLinesEl.appendChild(line);
+    });
+    if(damage > 0){
+      skillDamageEl.textContent = '-' + damage;
+      skillDamageEl.style.display = '';
+    } else {
+      skillDamageEl.style.display = 'none';
+    }
+    skillPopupEl.classList.toggle('enemy', !!isEnemy);
+    skillPopupEl.classList.toggle('mega', damage >= 25);
+    playAnim(skillPopupEl, 'show');
+    skillTimer = setTimeout(() => { skillPopupEl.classList.remove('show'); }, 1500);
   }
 
   function commitSelfPlacement(idx, r, c){
     const res = CCB.playerAction('self', idx, r, c);
     if(res.ok){
-      if(res.names.length) showToast('YOU: ' + res.names.join(' / '), false);
+      if(res.names.length) showSkillPopup(res.names, res.damage, false);
       if(CCB.mode === 'online'){
         CCB.net.send({
           type: 'move',
@@ -183,9 +199,10 @@ window.CCB = window.CCB || {};
   function commitAiTick(){
     const res = CCB.aiTick();
     if(res && res.ok && res.names.length){
-      showToast('敵: ' + res.names.join(' / '), true);
+      showSkillPopup(res.names, res.damage, true);
     }
     renderAll();
+    return res;
   }
 
   CCB.selfBoardEl = selfBoardEl;
@@ -197,7 +214,7 @@ window.CCB = window.CCB || {};
   CCB.buildPieceGridEl = buildPieceGridEl;
   CCB.renderTray = renderTray;
   CCB.renderAll = renderAll;
-  CCB.showToast = showToast;
+  CCB.showSkillPopup = showSkillPopup;
   CCB.commitSelfPlacement = commitSelfPlacement;
   CCB.commitAiTick = commitAiTick;
 })(window.CCB);
