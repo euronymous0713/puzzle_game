@@ -5,6 +5,10 @@ window.CCB = window.CCB || {};
   const N = CCB.N;
   const { selfBoardEl, trayEl, selfCellEls, canPlace, pieceBBox, cloneBoard, doPlace, findGroups } = CCB;
 
+  // 指でドラッグしている間、指自体でミノが隠れて見えなくなるのを防ぐため
+  // 指の位置より少し上にミノを表示し、判定位置もそれに合わせてずらす
+  const TOUCH_LIFT = 70;
+
   let dragging = null;
   let lastTarget = null;
   let previewCells = []; // [r, c, isPieceCell]
@@ -85,14 +89,15 @@ window.CCB = window.CCB || {};
     const piece = CCB.state.self.tray[idx];
     if(!piece) return;
     if(dragging) cleanupDrag(); // 前のドラッグが中断状態で残っていたら片付けてから開始する
-    dragging = { idx, piece, pointerId: e.pointerId };
+    const lift = e.pointerType === 'mouse' ? 0 : TOUCH_LIFT;
+    dragging = { idx, piece, pointerId: e.pointerId, lift };
     lastTarget = null;
     if(slot.setPointerCapture) slot.setPointerCapture(e.pointerId);
     slot.style.opacity = '0.25';
     const clone = CCB.buildPieceGridEl(piece);
     clone.classList.add('dragging-clone');
     clone.style.left = e.clientX + 'px';
-    clone.style.top = e.clientY + 'px';
+    clone.style.top = (e.clientY - lift) + 'px';
     clone.style.transform = 'translate(-50%,-50%)';
     document.body.appendChild(clone);
     dragging.cloneEl = clone;
@@ -101,13 +106,23 @@ window.CCB = window.CCB || {};
 
   document.addEventListener('pointermove', (e) => {
     if(!dragging || e.pointerId !== dragging.pointerId) return;
-    dragging.cloneEl.style.left = e.clientX + 'px';
-    dragging.cloneEl.style.top = e.clientY + 'px';
+    const cx = e.clientX, cy = e.clientY - dragging.lift;
+    dragging.cloneEl.style.left = cx + 'px';
+    dragging.cloneEl.style.top = cy + 'px';
+
+    // 指(ポインター)がトレイの位置まで戻ったら、盤面には置かずキャンセルできるようにする
+    const trayRect = trayEl.getBoundingClientRect();
+    if(e.clientY >= trayRect.top){
+      clearPreview();
+      lastTarget = null;
+      return;
+    }
+
     const rect = selfBoardEl.getBoundingClientRect();
     const cellSize = rect.width / N;
     const {w,h} = pieceBBox(dragging.piece.cells);
-    let or = Math.round((e.clientY - rect.top) / cellSize - h/2);
-    let oc = Math.round((e.clientX - rect.left) / cellSize - w/2);
+    let or = Math.round((cy - rect.top) / cellSize - h/2);
+    let oc = Math.round((cx - rect.left) / cellSize - w/2);
     or = Math.max(0, Math.min(N-h, or));
     oc = Math.max(0, Math.min(N-w, oc));
     const valid = canPlace(CCB.state.self.board, dragging.piece.cells, or, oc);
