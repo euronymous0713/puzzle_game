@@ -3,25 +3,56 @@ window.CCB = window.CCB || {};
 
 (function(CCB){
   const N = CCB.N;
-  const { selfBoardEl, trayEl, selfCellEls, canPlace, pieceBBox } = CCB;
+  const { selfBoardEl, trayEl, selfCellEls, canPlace, pieceBBox, cloneBoard, doPlace, findGroups } = CCB;
 
   let dragging = null;
-  let previewCells = [];
+  let previewCells = []; // [r, c, isPieceCell]
 
   function clearPreview(){
-    previewCells.forEach(([r,c]) => {
-      selfCellEls[r][c].classList.remove('preview-valid','preview-invalid');
+    previewCells.forEach(([r,c,isPieceCell]) => {
+      const el = selfCellEls[r][c];
+      el.classList.remove('preview-valid','preview-invalid','preview-clear');
+      if(isPieceCell) el.style.background = '';
     });
     previewCells = [];
   }
 
   function applyPreview(or, oc, piece, valid){
     clearPreview();
-    piece.cells.forEach(([r,c]) => {
+    if(!valid){
+      piece.cells.forEach(([r,c], i) => {
+        const ar = or+r, ac = oc+c;
+        if(ar>=0&&ar<N&&ac>=0&&ac<N){
+          const el = selfCellEls[ar][ac];
+          el.style.background = piece.colors[i];
+          el.classList.add('preview-invalid');
+          previewCells.push([ar,ac,true]);
+        }
+      });
+      return;
+    }
+
+    // 確定後に消えるグループを事前にシミュレートしてハイライトする
+    const sim = cloneBoard(CCB.state.self.board);
+    doPlace(sim, piece, or, oc);
+    const clearSet = new Set();
+    findGroups(sim).forEach(g => g.cells.forEach(([r,c]) => clearSet.add(r+','+c)));
+
+    piece.cells.forEach(([r,c], i) => {
       const ar = or+r, ac = oc+c;
-      if(ar>=0&&ar<N&&ac>=0&&ac<N){
-        selfCellEls[ar][ac].classList.add(valid ? 'preview-valid' : 'preview-invalid');
-        previewCells.push([ar,ac]);
+      const el = selfCellEls[ar][ac];
+      el.style.background = piece.colors[i];
+      el.classList.add(clearSet.has(ar+','+ac) ? 'preview-clear' : 'preview-valid');
+      previewCells.push([ar,ac,true]);
+    });
+
+    // ピース自体には含まれないが、同時に消える既存セルもハイライトする
+    clearSet.forEach(key => {
+      const [r,c] = key.split(',').map(Number);
+      const isPieceCell = piece.cells.some(([pr,pc]) => or+pr===r && oc+pc===c);
+      if(!isPieceCell){
+        selfCellEls[r][c].classList.add('preview-clear');
+        previewCells.push([r,c,false]);
       }
     });
   }
