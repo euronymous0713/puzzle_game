@@ -43,8 +43,20 @@ window.CCB = window.CCB || {};
     return cells.map(([r,c]) => [r-minR, c-minC]);
   }
 
+  // ブロック数が多いほど出現率が下がるようにする(1:2:3:4マス = 40:30:20:10%)
+  const SIZE_WEIGHTS = [ [1,4], [2,3], [3,2], [4,1] ];
+  function pickSize(){
+    const total = SIZE_WEIGHTS.reduce((sum, [,w]) => sum + w, 0);
+    let roll = Math.random() * total;
+    for(const [size, w] of SIZE_WEIGHTS){
+      if(roll < w) return size;
+      roll -= w;
+    }
+    return SIZE_WEIGHTS[SIZE_WEIGHTS.length - 1][0];
+  }
+
   function genPiece(){
-    const size = 1 + Math.floor(Math.random()*4);
+    const size = pickSize();
     const cells = genShape(size);
     const colors = cells.map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
     return { cells, colors, id: Math.random().toString(36).slice(2) };
