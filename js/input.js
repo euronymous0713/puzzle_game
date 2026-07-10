@@ -32,13 +32,21 @@ window.CCB = window.CCB || {};
   function applyPreview(or, oc, piece, valid){
     clearPreview();
     if(!valid){
+      const board = CCB.state.self.board;
       piece.cells.forEach(([r,c], i) => {
         const ar = or+r, ac = oc+c;
         if(ar>=0&&ar<N&&ac>=0&&ac<N){
           const el = selfCellEls[ar][ac];
-          el.style.background = piece.colors[i];
+          const occupied = board[ar][ac] !== null;
           el.classList.add('preview-invalid');
-          previewCells.push([ar,ac,true]);
+          if(occupied){
+            // 既に置いてあるミノの上に重なっている場合は背景を書き換えない
+            // (clearPreview時に元の色を消して見えなくしてしまうのを防ぐ)
+            previewCells.push([ar,ac,false]);
+          } else {
+            el.style.background = piece.colors[i];
+            previewCells.push([ar,ac,true]);
+          }
         }
       });
       return;
