@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Color Crash Battle</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="titleScreen" class="screen">
+  <h1 class="titleMain">COLOR CRASH<br>BATTLE</h1>
+
+  <div id="menuButtons" class="menu-panel">
+    <button id="btnCpu" class="menu-btn">CPUと対戦</button>
+    <button id="btnShowCreate" class="menu-btn">ルームを作る</button>
+    <button id="btnShowJoin" class="menu-btn">ルームに参加</button>
+  </div>
+
+  <div id="createPanel" class="menu-panel hidden">
+    <p class="panel-desc">このコードを相手に伝えてください</p>
+    <div id="roomCodeDisplay" class="room-code">------</div>
+    <button id="btnCopyCode" class="menu-btn small">コードをコピー</button>
+    <p id="createStatus" class="panel-status"></p>
+    <button id="btnCancelCreate" class="menu-btn ghost">戻る</button>
+  </div>
+
+  <div id="joinPanel" class="menu-panel hidden">
+    <p class="panel-desc">相手のコードを入力してください</p>
+    <input id="joinCodeInput" class="room-input" maxlength="6" placeholder="ABCDEF" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <button id="btnJoinConfirm" class="menu-btn">参加する</button>
+    <p id="joinStatus" class="panel-status"></p>
+    <button id="btnCancelJoin" class="menu-btn ghost">戻る</button>
+  </div>
+</div>
+
+<div id="app" class="screen hidden">
+  <div class="appHeader">
+    <button id="leaveBtn" class="leave-btn">✕ 退出</button>
+    <h1 class="title">COLOR CRASH BATTLE</h1>
+  </div>
+  <div class="hpwrap">
+    <div class="hplabel">YOU</div>
+    <div class="hpbar"><div id="selfHpFill" class="hpfill"></div></div>
+    <div id="selfHpNum" class="hpnum">100</div>
+  </div>
+  <div id="selfBoard" class="board"></div>
+  <div id="tray"></div>
+
+  <div id="oppPanel">
+    <div class="hpwrap"><div class="hplabel">敵</div><div class="hpbar"><div id="oppHpFill" class="hpfill"></div></div><div id="oppHpNum" class="hpnum">100</div></div>
+    <div id="oppBoard" class="board"></div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="overlay">
+    <div id="overlayTitle"></div>
+    <button id="restartBtn">もう一度</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1/dist/peerjs.min.js"></script>
+<script src="js/shapes.js"></script>
+<script src="js/board.js"></script>
+<script src="js/state.js"></script>
+<script src="js/net.js"></script>
+<script src="js/render.js"></script>
+<script src="js/input.js"></script>
+<script src="js/title.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
