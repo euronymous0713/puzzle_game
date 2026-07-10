@@ -6,7 +6,19 @@ window.CCB = window.CCB || {};
   const { selfBoardEl, trayEl, selfCellEls, canPlace, pieceBBox, cloneBoard, doPlace, findGroups } = CCB;
 
   let dragging = null;
+  let lastTarget = null;
   let previewCells = []; // [r, c, isPieceCell]
+
+  // ドラッグを中断状態から必ず復帰させる後片付け(pointercancel・多重pointerdown・
+  // ウィンドウ外での離しなど、pointerupが発火しないケースの保険)
+  function cleanupDrag(){
+    if(!dragging) return;
+    clearPreview();
+    if(dragging.cloneEl) dragging.cloneEl.remove();
+    dragging = null;
+    lastTarget = null;
+    CCB.renderTray();
+  }
 
   function clearPreview(){
     previewCells.forEach(([r,c,isPieceCell]) => {
@@ -57,8 +69,6 @@ window.CCB = window.CCB || {};
     });
   }
 
-  let lastTarget = null;
-
   trayEl.addEventListener('pointerdown', (e) => {
     if(CCB.state.over) return;
     const slot = e.target.closest('.piece-slot');
@@ -66,8 +76,10 @@ window.CCB = window.CCB || {};
     const idx = +slot.dataset.idx;
     const piece = CCB.state.self.tray[idx];
     if(!piece) return;
-    dragging = { idx, piece };
+    if(dragging) cleanupDrag(); // 前のドラッグが中断状態で残っていたら片付けてから開始する
+    dragging = { idx, piece, pointerId: e.pointerId };
     lastTarget = null;
+    if(slot.setPointerCapture) slot.setPointerCapture(e.pointerId);
     slot.style.opacity = '0.25';
     const clone = CCB.buildPieceGridEl(piece);
     clone.classList.add('dragging-clone');
@@ -80,7 +92,7 @@ window.CCB = window.CCB || {};
   });
 
   document.addEventListener('pointermove', (e) => {
-    if(!dragging) return;
+    if(!dragging || e.pointerId !== dragging.pointerId) return;
     dragging.cloneEl.style.left = e.clientX + 'px';
     dragging.cloneEl.style.top = e.clientY + 'px';
     const rect = selfBoardEl.getBoundingClientRect();
@@ -95,15 +107,25 @@ window.CCB = window.CCB || {};
     lastTarget = { or, oc, valid };
   });
 
-  document.addEventListener('pointerup', () => {
-    if(!dragging) return;
+  document.addEventListener('pointerup', (e) => {
+    if(!dragging || e.pointerId !== dragging.pointerId) return;
     clearPreview();
     dragging.cloneEl.remove();
-    if(lastTarget && lastTarget.valid){
-      CCB.commitSelfPlacement(dragging.idx, lastTarget.or, lastTarget.oc);
+    const idx = dragging.idx;
+    const target = lastTarget;
+    dragging = null; lastTarget = null;
+    if(target && target.valid){
+      CCB.commitSelfPlacement(idx, target.or, target.oc);
     } else {
       CCB.renderTray();
     }
-    dragging = null; lastTarget = null;
   });
+
+  // OSやブラウザにドラッグを中断された場合(スクロール競合・アプリ切替・
+  // ウィンドウ外でのポインター解放など)に必ず後片付けする保険
+  document.addEventListener('pointercancel', (e) => {
+    if(!dragging || e.pointerId !== dragging.pointerId) return;
+    cleanupDrag();
+  });
+  window.addEventListener('blur', cleanupDrag);
 })(window.CCB);
