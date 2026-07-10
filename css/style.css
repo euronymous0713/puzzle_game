@@ -140,7 +140,7 @@ body::before{
   100%{ transform:scale(0.15); opacity:0; filter:brightness(2.6); }
 }
 
-#tray{ width:92%; display:flex; justify-content:space-around; gap:6px; margin-top:auto; padding-bottom:6px; }
+#tray{ width:92%; display:flex; justify-content:space-around; gap:6px; padding-bottom:6px; }
 .piece-slot{
   flex:1; min-height:64px; display:flex; align-items:center; justify-content:center;
   background:var(--panel); border:1px solid var(--line); border-radius:8px; touch-action:none;
