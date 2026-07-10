@@ -7,6 +7,8 @@ window.CCB = window.CCB || {};
   const selfBoardEl = document.getElementById('selfBoard');
   const oppBoardEl = document.getElementById('oppBoard');
   const trayEl = document.getElementById('tray');
+  const selfHpWrap = document.getElementById('selfHpWrap');
+  const oppHpWrap = document.getElementById('oppHpWrap');
   const selfHpFill = document.getElementById('selfHpFill');
   const selfHpNum = document.getElementById('selfHpNum');
   const oppHpFill = document.getElementById('oppHpFill');
@@ -18,6 +20,10 @@ window.CCB = window.CCB || {};
 
   let selfCellEls = [];
   let oppCellEls = [];
+  let prevSelfBoard = null;
+  let prevOppBoard = null;
+  let prevSelfHp = null;
+  let prevOppHp = null;
 
   function buildBoardDom(el, targetArr){
     el.innerHTML = '';
@@ -35,11 +41,36 @@ window.CCB = window.CCB || {};
   buildBoardDom(selfBoardEl, selfCellEls);
   buildBoardDom(oppBoardEl, oppCellEls);
 
-  function renderBoard(cellEls, board){
+  // 演出用クラスを一度リセットしてから付け直し、アニメーションを毎回再生させる
+  function playAnim(el, className){
+    el.classList.remove(className);
+    void el.offsetWidth; // reflow
+    el.classList.add(className);
+  }
+
+  function renderBoard(cellEls, board, prevBoard){
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
         const v = board[r][c];
-        cellEls[r][c].style.background = v || '';
+        const prev = prevBoard ? prevBoard[r][c] : undefined;
+        const el = cellEls[r][c];
+        if(prev === v) continue;
+        if(v && !prev){
+          el.classList.remove('cell-clear');
+          el.style.background = v;
+          playAnim(el, 'cell-pop');
+        } else if(!v && prev){
+          el.style.background = prev;
+          el.classList.remove('cell-pop');
+          playAnim(el, 'cell-clear');
+          el.addEventListener('animationend', function onEnd(){
+            el.style.background = '';
+            el.classList.remove('cell-clear');
+            el.removeEventListener('animationend', onEnd);
+          }, { once:true });
+        } else {
+          el.style.background = v || '';
+        }
       }
     }
   }
@@ -52,15 +83,23 @@ window.CCB = window.CCB || {};
 
   function renderHp(){
     const state = CCB.state;
-    const sp = Math.max(0, state.self.hp) / state.self.maxHp;
+    const selfHp = Math.max(0, state.self.hp);
+    const oppHp = Math.max(0, state.opp.hp);
+
+    const sp = selfHp / state.self.maxHp;
     selfHpFill.style.width = (sp*100) + '%';
     selfHpFill.style.background = hpColor(sp);
-    selfHpNum.textContent = Math.max(0, state.self.hp);
+    selfHpNum.textContent = selfHp;
 
-    const op = Math.max(0, state.opp.hp) / state.opp.maxHp;
+    const op = oppHp / state.opp.maxHp;
     oppHpFill.style.width = (op*100) + '%';
     oppHpFill.style.background = hpColor(op);
-    oppHpNum.textContent = Math.max(0, state.opp.hp);
+    oppHpNum.textContent = oppHp;
+
+    if(prevSelfHp !== null && selfHp < prevSelfHp) playAnim(selfHpWrap, 'hp-hit');
+    if(prevOppHp !== null && oppHp < prevOppHp) playAnim(oppHpWrap, 'hp-hit');
+    prevSelfHp = selfHp;
+    prevOppHp = oppHp;
   }
 
   function buildPieceGridEl(piece){
@@ -96,8 +135,10 @@ window.CCB = window.CCB || {};
 
   function renderAll(){
     const state = CCB.state;
-    renderBoard(selfCellEls, state.self.board);
-    renderBoard(oppCellEls, state.opp.board);
+    renderBoard(selfCellEls, state.self.board, prevSelfBoard);
+    renderBoard(oppCellEls, state.opp.board, prevOppBoard);
+    prevSelfBoard = CCB.cloneBoard(state.self.board);
+    prevOppBoard = CCB.cloneBoard(state.opp.board);
     renderHp();
     renderTray();
     if(state.over){
@@ -105,9 +146,9 @@ window.CCB = window.CCB || {};
         ? state.disconnectMsg
         : (state.winner === 'self' ? 'YOU WIN' : 'YOU LOSE');
       restartBtn.textContent = CCB.mode === 'online' ? 'タイトルへ' : 'もう一度';
-      overlayEl.style.display = 'flex';
+      overlayEl.classList.add('show');
     } else {
-      overlayEl.style.display = 'none';
+      overlayEl.classList.remove('show');
     }
   }
 
@@ -115,9 +156,9 @@ window.CCB = window.CCB || {};
   function showToast(text, isEnemy){
     toastEl.textContent = text;
     toastEl.className = isEnemy ? 'enemy' : '';
-    toastEl.style.opacity = 1;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { toastEl.style.opacity = 0; }, 1400);
+    playAnim(toastEl, 'show');
+    toastTimer = setTimeout(() => { toastEl.classList.remove('show'); }, 1400);
   }
 
   function commitSelfPlacement(idx, r, c){

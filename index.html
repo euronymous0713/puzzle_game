@@ -40,11 +40,11 @@
     <h1 class="title">COLOR CRASH BATTLE</h1>
   </div>
   <div id="oppPanel">
-    <div class="hpwrap"><div class="hplabel">敵</div><div class="hpbar"><div id="oppHpFill" class="hpfill"></div></div><div id="oppHpNum" class="hpnum">100</div></div>
+    <div id="oppHpWrap" class="hpwrap"><div class="hplabel">敵</div><div class="hpbar"><div id="oppHpFill" class="hpfill"></div></div><div id="oppHpNum" class="hpnum">100</div></div>
     <div id="oppBoard" class="board"></div>
   </div>
 
-  <div class="hpwrap">
+  <div id="selfHpWrap" class="hpwrap">
     <div class="hplabel">YOU</div>
     <div class="hpbar"><div id="selfHpFill" class="hpfill"></div></div>
     <div id="selfHpNum" class="hpnum">100</div>
@@ -54,8 +54,10 @@
 
   <div id="toast"></div>
   <div id="overlay">
-    <div id="overlayTitle"></div>
-    <button id="restartBtn">もう一度</button>
+    <div class="overlay-card">
+      <div id="overlayTitle"></div>
+      <button id="restartBtn">もう一度</button>
+    </div>
   </div>
 </div>
 
