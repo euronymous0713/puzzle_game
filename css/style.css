@@ -21,7 +21,8 @@ body::before{
 .hidden{ display:none !important; }
 
 #titleScreen{
-  position:relative; z-index:1; max-width:480px; margin:0 auto; min-height:100vh;
+  position:relative; z-index:1; max-width:480px; margin:0 auto;
+  min-height:100vh; min-height:100dvh;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:26px; padding:24px;
 }
@@ -76,7 +77,8 @@ body::before{
 .room-input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(124,157,255,0.25); }
 
 #app{
-  position:relative; z-index:1; max-width:480px; margin:0 auto; height:100vh;
+  position:relative; z-index:1; max-width:480px; margin:0 auto;
+  height:100vh; height:100dvh;
   display:flex; flex-direction:column; align-items:center; padding:10px; gap:6px;
 }
 .appHeader{ width:92%; position:relative; display:flex; justify-content:center; align-items:center; }
@@ -110,6 +112,10 @@ body::before{
   width:92%; aspect-ratio:1/1; background:var(--panel);
   border:2px solid var(--line); border-radius:10px; padding:5px;
 }
+/* 縦幅が狭い画面(スマホの表示領域が狭い場合など)でトレイが画面外に
+   はみ出さないよう、自分の盤面は横幅92%と「残りの縦スペース」の
+   小さい方に収める */
+#selfBoard{ width:min(92%, calc(100vh - 300px)); width:min(92%, calc(100dvh - 300px)); }
 .cell{ background:#11152a; border-radius:4px; transition:background .15s; transform-origin:center; }
 .cell.preview-valid{ box-shadow:inset 0 0 0 2px #66bb6a; opacity:0.85; }
 .cell.preview-invalid{ box-shadow:inset 0 0 0 2px #ff5252; opacity:0.45; filter:grayscale(0.5); }
