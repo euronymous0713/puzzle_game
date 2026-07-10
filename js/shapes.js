@@ -3,7 +3,7 @@ window.CCB = window.CCB || {};
 
 (function(CCB){
   const N = 8;
-  const COLORS = ['#ff5252','#4fc3f7','#66bb6a','#ffd54f','#ba68c8','#ff9e5e'];
+  const COLORS = ['#ff5252','#4fc3f7','#66bb6a','#ffd54f'];
 
   function shuffle(arr){
     for(let i=arr.length-1;i>0;i--){
