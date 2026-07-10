@@ -43,8 +43,8 @@ window.CCB = window.CCB || {};
     return cells.map(([r,c]) => [r-minR, c-minC]);
   }
 
-  // ブロック数が多いほど出現率が下がるようにする(1:2:3:4マス = 40:30:20:10%)
-  const SIZE_WEIGHTS = [ [1,4], [2,3], [3,2], [4,1] ];
+  // ブロック数が多いほど出現率が上がるようにする(1:2:3:4マス = 10:20:30:40%)
+  const SIZE_WEIGHTS = [ [1,1], [2,2], [3,3], [4,4] ];
   function pickSize(){
     const total = SIZE_WEIGHTS.reduce((sum, [,w]) => sum + w, 0);
     let roll = Math.random() * total;
