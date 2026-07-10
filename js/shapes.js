@@ -44,8 +44,7 @@ window.CCB = window.CCB || {};
   }
 
   function genPiece(){
-    const size = 4 + Math.floor(Math.random()*3);
-    const cells = genShape(size);
+    const cells = genShape(4);
     const colors = cells.map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
     return { cells, colors, id: Math.random().toString(36).slice(2) };
   }
