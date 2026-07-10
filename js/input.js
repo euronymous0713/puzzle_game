@@ -7,7 +7,7 @@ window.CCB = window.CCB || {};
 
   // 指でドラッグしている間、指自体でミノが隠れて見えなくなるのを防ぐため
   // 指の位置より少し上にミノを表示し、判定位置もそれに合わせてずらす
-  const TOUCH_LIFT = 70;
+  const TOUCH_LIFT = 130;
 
   let dragging = null;
   let lastTarget = null;
@@ -110,9 +110,11 @@ window.CCB = window.CCB || {};
     dragging.cloneEl.style.left = cx + 'px';
     dragging.cloneEl.style.top = cy + 'px';
 
-    // 指(ポインター)がトレイの位置まで戻ったら、盤面には置かずキャンセルできるようにする
+    // ミノ(見た目の位置=cy)がトレイまで戻ったら、盤面には置かずキャンセルできるようにする。
+    // ここは指の生位置(e.clientY)ではなくcyで判定する必要がある。生位置で判定すると、
+    // リフト分だけ盤面の最下段に指が届く前にトレイ領域に入ってしまい、最下段に置けなくなる。
     const trayRect = trayEl.getBoundingClientRect();
-    if(e.clientY >= trayRect.top){
+    if(cy >= trayRect.top){
       clearPreview();
       lastTarget = null;
       return;
