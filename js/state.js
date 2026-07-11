@@ -26,13 +26,41 @@ window.CCB = window.CCB || {};
     doPlace(player.board, piece, or, oc);
     player.tray[trayIdx] = genPiece();
     const groups = findGroups(player.board);
-    const result = { ok:true, damage:0, names:[] };
+    const result = { ok:true, damage:0, heal:0, names:[] };
     if(groups.length){
+      const clearedSet = new Set();
+      groups.forEach(g => g.cells.forEach(([r,c]) => clearedSet.add(r+','+c)));
+
+      // 消えるマスに隣接する回復ブロックを探す(重複なし)
+      const healCells = [];
+      const healSeen = new Set();
+      clearedSet.forEach(key => {
+        const [r,c] = key.split(',').map(Number);
+        [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc]) => {
+          const nr = r+dr, nc = c+dc;
+          if(nr<0||nr>=CCB.N||nc<0||nc>=CCB.N) return;
+          const nk = nr+','+nc;
+          if(clearedSet.has(nk) || healSeen.has(nk)) return;
+          if(player.board[nr][nc] === CCB.HEAL){
+            healSeen.add(nk);
+            healCells.push([nr,nc]);
+          }
+        });
+      });
+
       groups.forEach(g => g.cells.forEach(([r,c]) => { player.board[r][c] = null; }));
       const calc = calcDamage(groups);
       opp.hp = Math.max(0, opp.hp - calc.total);
       result.damage = calc.total;
       result.names = calc.names;
+
+      if(healCells.length){
+        const healTotal = clearedSet.size * healCells.length;
+        healCells.forEach(([r,c]) => { player.board[r][c] = null; });
+        player.hp = Math.min(player.maxHp, player.hp + healTotal);
+        result.heal = healTotal;
+        result.names.push('回復 +' + healTotal);
+      }
     }
     if(opp.hp <= 0){
       CCB.state.over = true; CCB.state.winner = who;
@@ -74,29 +102,66 @@ window.CCB = window.CCB || {};
   function startOnlineGame(){
     CCB.mode = 'online';
     CCB.state = freshState();
+    CCB.rematchSelfWants = false;
+    CCB.rematchOppWants = false;
   }
 
-  // 相手クライアントから届いた着手メッセージを自分のopp側へ反映する
-  function handleRemoteMessage(msg){
-    if(CCB.mode !== 'online' || CCB.state.over) return;
-    if(msg.type !== 'move') return;
-    const state = CCB.state;
-    state.opp.board = msg.board;
-    if(msg.damage > 0){
-      state.self.hp = Math.max(0, state.self.hp - msg.damage);
-      CCB.showSkillPopup(msg.names, msg.damage, true);
-    }
-    if(msg.over){
-      state.over = true;
-      state.winner = msg.winner === 'self' ? 'opp' : 'self';
+  CCB.rematchSelfWants = false;
+  CCB.rematchOppWants = false;
+
+  // 「もう一度」を押した側が呼ぶ。双方が希望した時点で次の試合を始める
+  function requestRematch(){
+    if(CCB.mode !== 'online' || !CCB.state.over || CCB.state.disconnectMsg) return;
+    CCB.rematchSelfWants = true;
+    CCB.net.send({ type:'rematch' });
+    if(CCB.rematchOppWants){
+      startOnlineGame();
     }
     CCB.renderAll();
   }
 
+  // 相手クライアントから届いたメッセージを自分の状態へ反映する
+  function handleRemoteMessage(msg){
+    if(CCB.mode !== 'online') return;
+
+    if(msg.type === 'move'){
+      if(CCB.state.over) return;
+      const state = CCB.state;
+      state.opp.board = msg.board;
+      if(msg.damage > 0){
+        state.self.hp = Math.max(0, state.self.hp - msg.damage);
+        CCB.showSkillPopup(msg.names, msg.damage, true);
+      }
+      if(msg.heal > 0){
+        state.opp.hp = Math.min(state.opp.maxHp, state.opp.hp + msg.heal);
+      }
+      if(msg.over){
+        state.over = true;
+        state.winner = msg.winner === 'self' ? 'opp' : 'self';
+      }
+      CCB.renderAll();
+      return;
+    }
+
+    if(msg.type === 'rematch'){
+      if(!CCB.state.over || CCB.state.disconnectMsg) return;
+      CCB.rematchOppWants = true;
+      if(CCB.rematchSelfWants){
+        startOnlineGame();
+      }
+      CCB.renderAll();
+      return;
+    }
+  }
+
   function handleOnlineDisconnect(reason){
-    if(CCB.mode !== 'online' || CCB.state.over) return;
+    if(CCB.mode !== 'online') return;
+    // 対戦中、または再戦の返事待ちの場合のみ切断表示を出す
+    if(CCB.state.over && !CCB.rematchSelfWants && !CCB.rematchOppWants) return;
     CCB.state.over = true;
     CCB.state.disconnectMsg = reason;
+    CCB.rematchSelfWants = false;
+    CCB.rematchOppWants = false;
     CCB.renderAll();
   }
 
@@ -106,6 +171,7 @@ window.CCB = window.CCB || {};
   CCB.aiTick = aiTick;
   CCB.startCpuGame = startCpuGame;
   CCB.startOnlineGame = startOnlineGame;
+  CCB.requestRematch = requestRematch;
   CCB.handleRemoteMessage = handleRemoteMessage;
   CCB.handleOnlineDisconnect = handleOnlineDisconnect;
 })(window.CCB);

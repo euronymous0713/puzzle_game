@@ -20,6 +20,8 @@ window.CCB = window.CCB || {};
 
   function showTitle(){
     CCB.mode = null;
+    CCB.rematchSelfWants = false;
+    CCB.rematchOppWants = false;
     CCB.net.disconnect();
     appScreen.classList.add('hidden');
     titleScreen.classList.remove('hidden');

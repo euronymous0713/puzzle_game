@@ -5,6 +5,16 @@ window.CCB = window.CCB || {};
   const N = 8;
   const COLORS = ['#ff5252','#4fc3f7','#66bb6a','#ffd54f'];
 
+  // 回復ブロック: 色マッチには参加しない特殊マス。消えるマスに隣接していると
+  // 一緒に消えて「消したマス数」分だけHPを回復する。
+  const HEAL = 'HEAL';
+  const HEAL_BG = 'radial-gradient(circle at 35% 30%, #ffffff, #7cffb2 45%, #22c55e 90%)';
+  const HEAL_CHANCE = 1/3; // ミノ1個ごとに独立でこの確率(上限なし)
+  function cellBg(v){
+    if(!v) return '';
+    return v === HEAL ? HEAL_BG : v;
+  }
+
   function shuffle(arr){
     for(let i=arr.length-1;i>0;i--){
       const j = Math.floor(Math.random()*(i+1));
@@ -59,6 +69,9 @@ window.CCB = window.CCB || {};
     const size = pickSize();
     const cells = genShape(size);
     const colors = cells.map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
+    if(Math.random() < HEAL_CHANCE){
+      colors[Math.floor(Math.random()*colors.length)] = HEAL;
+    }
     return { cells, colors, id: Math.random().toString(36).slice(2) };
   }
 
@@ -141,6 +154,8 @@ window.CCB = window.CCB || {};
 
   CCB.N = N;
   CCB.COLORS = COLORS;
+  CCB.HEAL = HEAL;
+  CCB.cellBg = cellBg;
   CCB.genPiece = genPiece;
   CCB.pieceBBox = pieceBBox;
   CCB.classifyShape = classifyShape;

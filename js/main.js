@@ -4,11 +4,19 @@ window.CCB = window.CCB || {};
 (function(CCB){
   CCB.restartBtn.addEventListener('click', () => {
     if(CCB.mode === 'online'){
-      CCB.showTitle();
+      if(CCB.state.disconnectMsg){
+        CCB.showTitle();
+      } else {
+        CCB.requestRematch();
+      }
     } else {
       CCB.startCpuGame();
       CCB.renderAll();
     }
+  });
+
+  document.getElementById('leaveMatchBtn').addEventListener('click', () => {
+    CCB.showTitle();
   });
 
   // CPU対戦中のみ動作するAIループ(タイトル画面/オンライン対戦中は何もしない)

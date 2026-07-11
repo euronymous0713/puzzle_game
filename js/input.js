@@ -48,7 +48,7 @@ window.CCB = window.CCB || {};
             // (clearPreview時に元の色を消して見えなくしてしまうのを防ぐ)
             previewCells.push([ar,ac,false]);
           } else {
-            el.style.background = piece.colors[i];
+            el.style.background = CCB.cellBg(piece.colors[i]);
             previewCells.push([ar,ac,true]);
           }
         }
@@ -65,7 +65,7 @@ window.CCB = window.CCB || {};
     piece.cells.forEach(([r,c], i) => {
       const ar = or+r, ac = oc+c;
       const el = selfCellEls[ar][ac];
-      el.style.background = piece.colors[i];
+      el.style.background = CCB.cellBg(piece.colors[i]);
       el.classList.add(clearSet.has(ar+','+ac) ? 'preview-clear' : 'preview-valid');
       previewCells.push([ar,ac,true]);
     });

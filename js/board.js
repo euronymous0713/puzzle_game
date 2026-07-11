@@ -28,7 +28,7 @@ window.CCB = window.CCB || {};
     const groups = [];
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
-        if(board[r][c]===null || visited[r][c]) continue;
+        if(board[r][c]===null || board[r][c]===CCB.HEAL || visited[r][c]) continue;
         const color = board[r][c];
         const stack = [[r,c]]; visited[r][c]=true;
         const comp = [];

@@ -18,7 +18,9 @@ window.CCB = window.CCB || {};
   const skillDamageEl = document.getElementById('skillDamage');
   const overlayEl = document.getElementById('overlay');
   const overlayTitleEl = document.getElementById('overlayTitle');
+  const rematchStatusEl = document.getElementById('rematchStatus');
   const restartBtn = document.getElementById('restartBtn');
+  const leaveMatchBtn = document.getElementById('leaveMatchBtn');
 
   let selfCellEls = [];
   let oppCellEls = [];
@@ -59,19 +61,21 @@ window.CCB = window.CCB || {};
         if(prev === v) continue;
         if(v && !prev){
           el.classList.remove('cell-clear');
-          el.style.background = v;
+          el.style.background = CCB.cellBg(v);
+          el.classList.toggle('heal-cell', v === CCB.HEAL);
           playAnim(el, 'cell-pop');
         } else if(!v && prev){
-          el.style.background = prev;
+          el.style.background = CCB.cellBg(prev);
           el.classList.remove('cell-pop');
           playAnim(el, 'cell-clear');
           el.addEventListener('animationend', function onEnd(){
             el.style.background = '';
-            el.classList.remove('cell-clear');
+            el.classList.remove('cell-clear', 'heal-cell');
             el.removeEventListener('animationend', onEnd);
           }, { once:true });
         } else {
-          el.style.background = v || '';
+          el.style.background = CCB.cellBg(v);
+          el.classList.toggle('heal-cell', v === CCB.HEAL);
         }
       }
     }
@@ -100,6 +104,8 @@ window.CCB = window.CCB || {};
 
     if(prevSelfHp !== null && selfHp < prevSelfHp) playAnim(selfHpWrap, 'hp-hit');
     if(prevOppHp !== null && oppHp < prevOppHp) playAnim(oppHpWrap, 'hp-hit');
+    if(prevSelfHp !== null && selfHp > prevSelfHp) playAnim(selfHpWrap, 'hp-heal');
+    if(prevOppHp !== null && oppHp > prevOppHp) playAnim(oppHpWrap, 'hp-heal');
     prevSelfHp = selfHp;
     prevOppHp = oppHp;
   }
@@ -117,7 +123,8 @@ window.CCB = window.CCB || {};
         const cell = document.createElement('div');
         cell.className = 'piece-cell';
         const color = map[r+','+c];
-        cell.style.background = color || 'transparent';
+        cell.style.background = color ? CCB.cellBg(color) : 'transparent';
+        if(color === CCB.HEAL) cell.classList.add('heal-cell');
         grid.appendChild(cell);
       }
     }
@@ -144,13 +151,27 @@ window.CCB = window.CCB || {};
     renderHp();
     renderTray();
     if(state.over){
-      overlayTitleEl.textContent = state.disconnectMsg
+      const isOnline = CCB.mode === 'online';
+      const disconnected = !!state.disconnectMsg;
+      overlayTitleEl.textContent = disconnected
         ? state.disconnectMsg
         : (state.winner === 'self' ? 'YOU WIN' : 'YOU LOSE');
-      restartBtn.textContent = CCB.mode === 'online' ? 'タイトルへ' : 'もう一度';
+
+      if(isOnline && !disconnected){
+        restartBtn.textContent = 'もう一度';
+        leaveMatchBtn.classList.remove('hidden');
+        rematchStatusEl.textContent = CCB.rematchSelfWants
+          ? '相手を待っています…'
+          : (CCB.rematchOppWants ? '相手が再戦を希望しています' : '');
+      } else {
+        restartBtn.textContent = isOnline ? 'タイトルへ' : 'もう一度';
+        leaveMatchBtn.classList.add('hidden');
+        rematchStatusEl.textContent = '';
+      }
       overlayEl.classList.add('show');
     } else {
       overlayEl.classList.remove('show');
+      rematchStatusEl.textContent = '';
     }
   }
 
@@ -186,6 +207,7 @@ window.CCB = window.CCB || {};
           type: 'move',
           board: CCB.state.self.board,
           damage: res.damage,
+          heal: res.heal,
           names: res.names,
           over: CCB.state.over,
           winner: CCB.state.winner,
