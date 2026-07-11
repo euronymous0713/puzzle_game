@@ -100,26 +100,23 @@ window.CCB = window.CCB || {};
     return { up: same(r-1,c), down: same(r+1,c), left: same(r,c-1), right: same(r,c+1) };
   }
 
-  // セルの見た目(角丸+背景)を現在の盤面から再計算して反映する。孤立したブロックは
-  // ツヤ感ありでしっかり丸く、隣と繋がっているブロックは継ぎ目側の角を落とし、
-  // 色をベタ塗り(ツヤ無し)にして境目の線が見えないようにする。
+  // セルの見た目(角丸+背景)を現在の盤面から再計算して反映する。ツヤ感は繋がって
+  // いても常に維持し、継ぎ目側の角だけ落として、面取りの影だけ消して段差の線を消す。
   function applyCellAppearance(el, board, r, c){
     const v = board[r][c];
     if(!v){ el.style.borderRadius = ''; el.classList.remove('connected'); return; }
+    el.style.background = CCB.cellBg(v);
     const conn = cellConnectivity(board, r, c);
     const connected = conn.up || conn.down || conn.left || conn.right;
     el.classList.toggle('connected', connected);
     if(!connected){
       el.style.borderRadius = BOARD_CELL_RADIUS + 'px';
-      el.style.background = CCB.cellBg(v);
     } else {
       const tl = (conn.up || conn.left) ? 0 : BOARD_CELL_RADIUS;
       const tr = (conn.up || conn.right) ? 0 : BOARD_CELL_RADIUS;
       const br = (conn.down || conn.right) ? 0 : BOARD_CELL_RADIUS;
       const bl = (conn.down || conn.left) ? 0 : BOARD_CELL_RADIUS;
       el.style.borderRadius = `${tl}px ${tr}px ${br}px ${bl}px`;
-      // 面取りの影が段差になって境目に線が見えてしまうため、繋がっているセルは影も消す
-      el.style.background = CCB.cellBg(v, true);
     }
   }
 
@@ -188,16 +185,26 @@ window.CCB = window.CCB || {};
     }
   }
 
-  // 隣接する同色マスの間の隙間を同色(ツヤ無し・ベタ塗り)で埋めて、境目の線が
-  // 見えないよう1つに繋がって見えるようにする。前回から既にあった繋ぎ目は
-  // アニメーションを再生させず、新しく繋がった時だけふわっと出現させる。
+  // 隣接する同色マスの間の隙間を同色(ベタ塗り)で埋めて、1つに繋がって見えるように
+  // する。前回から既にあった繋ぎ目はアニメーションを再生させず、新しく繋がった時だけ
+  // ふわっと出現させる。
+  //
+  // セルごとにgetBoundingClientRectを呼びながらDOMを書き換えると、読み取りと書き込みが
+  // 交互になってレイアウト再計算が何度も走り、アニメーションがカクつく(コマ送りに見える)
+  // 原因になる。盤面は8x8の均等なグリッドなので、実測は盤面全体とセル1個分だけにし、
+  // 残り63マスの位置は算術計算で求めることで再計算を1回だけに抑える。
   function buildBridges(boardEl, cellEls, board, prevKeys){
     boardEl.querySelectorAll('.cell-bridge').forEach(el => el.remove());
-    const boardRect = boardEl.getBoundingClientRect();
-    // 絶対配置の子要素の基準はborder-boxではなくpadding-box(borderの内側)になるため補正する
+    const sample = cellEls[0][0].getBoundingClientRect();
     const cs = getComputedStyle(boardEl);
-    const originX = boardRect.left + (parseFloat(cs.borderLeftWidth) || 0);
-    const originY = boardRect.top + (parseFloat(cs.borderTopWidth) || 0);
+    const gap = parseFloat(cs.columnGap) || 0;
+    // 絶対配置の子要素の原点はborder-boxではなくpadding-box(paddingの外側)になるため、
+    // パディング分を足さないとグリッド内容(セル)の実際の位置とズレる。
+    const padLeft = parseFloat(cs.paddingLeft) || 0;
+    const padTop = parseFloat(cs.paddingTop) || 0;
+    const step = sample.width + gap;
+    const cellLeft = (c) => padLeft + c * step;
+    const cellTop = (r) => padTop + r * step;
     const newKeys = new Set();
 
     for(let r=0;r<N;r++){
@@ -207,29 +214,25 @@ window.CCB = window.CCB || {};
         if(c+1<N && board[r][c+1]===v){
           const key = 'h'+r+'-'+c;
           newKeys.add(key);
-          const a = cellEls[r][c].getBoundingClientRect();
-          const b = cellEls[r][c+1].getBoundingClientRect();
           const bridge = document.createElement('div');
           bridge.className = 'cell-bridge' + (prevKeys.has(key) ? '' : ' bridge-in');
           bridge.style.background = CCB.cellBg(v, true);
-          bridge.style.left = (a.right - originX) + 'px';
-          bridge.style.top = (a.top - originY) + 'px';
-          bridge.style.width = (b.left - a.right) + 'px';
-          bridge.style.height = a.height + 'px';
+          bridge.style.left = (cellLeft(c) + sample.width) + 'px';
+          bridge.style.top = cellTop(r) + 'px';
+          bridge.style.width = gap + 'px';
+          bridge.style.height = sample.height + 'px';
           boardEl.appendChild(bridge);
         }
         if(r+1<N && board[r+1][c]===v){
           const key = 'v'+r+'-'+c;
           newKeys.add(key);
-          const a = cellEls[r][c].getBoundingClientRect();
-          const b = cellEls[r+1][c].getBoundingClientRect();
           const bridge = document.createElement('div');
           bridge.className = 'cell-bridge' + (prevKeys.has(key) ? '' : ' bridge-in');
           bridge.style.background = CCB.cellBg(v, true);
-          bridge.style.left = (a.left - originX) + 'px';
-          bridge.style.top = (a.bottom - originY) + 'px';
-          bridge.style.width = a.width + 'px';
-          bridge.style.height = (b.top - a.bottom) + 'px';
+          bridge.style.left = cellLeft(c) + 'px';
+          bridge.style.top = (cellTop(r) + sample.height) + 'px';
+          bridge.style.width = sample.width + 'px';
+          bridge.style.height = gap + 'px';
           boardEl.appendChild(bridge);
         }
       }
