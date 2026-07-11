@@ -8,6 +8,9 @@ window.CCB = window.CCB || {};
   // 指でドラッグしている間、指自体でミノが隠れて見えなくなるのを防ぐため
   // 指の位置より少し上にミノを表示し、判定位置もそれに合わせてずらす
   const TOUCH_LIFT = 130;
+  // スマホ操作時、指の移動量を増幅してミノを速く動かす(盤面の端から端まで
+  // 画面いっぱいに指を動かさなくて済むようにするため)。マウス操作は等倍のまま。
+  const TOUCH_SENSITIVITY = 1.8;
 
   let dragging = null;
   let lastTarget = null;
@@ -89,15 +92,22 @@ window.CCB = window.CCB || {};
     const piece = CCB.state.self.tray[idx];
     if(!piece) return;
     if(dragging) cleanupDrag(); // 前のドラッグが中断状態で残っていたら片付けてから開始する
-    const lift = e.pointerType === 'mouse' ? 0 : TOUCH_LIFT;
-    dragging = { idx, piece, pointerId: e.pointerId, lift };
+    const isTouch = e.pointerType !== 'mouse';
+    const lift = isTouch ? TOUCH_LIFT : 0;
+    const sensitivity = isTouch ? TOUCH_SENSITIVITY : 1;
+    dragging = {
+      idx, piece, pointerId: e.pointerId, lift, sensitivity,
+      lastRawX: e.clientX, lastRawY: e.clientY,
+      // 見た目上のミノの位置(指の移動量を増幅して動かす仮想位置)
+      virtualX: e.clientX, virtualY: e.clientY - lift,
+    };
     lastTarget = null;
     if(slot.setPointerCapture) slot.setPointerCapture(e.pointerId);
     slot.style.opacity = '0.25';
     const clone = CCB.buildPieceGridEl(piece);
     clone.classList.add('dragging-clone');
-    clone.style.left = e.clientX + 'px';
-    clone.style.top = (e.clientY - lift) + 'px';
+    clone.style.left = dragging.virtualX + 'px';
+    clone.style.top = dragging.virtualY + 'px';
     clone.style.transform = 'translate(-50%,-50%)';
     document.body.appendChild(clone);
     dragging.cloneEl = clone;
@@ -106,7 +116,16 @@ window.CCB = window.CCB || {};
 
   document.addEventListener('pointermove', (e) => {
     if(!dragging || e.pointerId !== dragging.pointerId) return;
-    const cx = e.clientX, cy = e.clientY - dragging.lift;
+    const dxRaw = e.clientX - dragging.lastRawX;
+    const dyRaw = e.clientY - dragging.lastRawY;
+    dragging.lastRawX = e.clientX;
+    dragging.lastRawY = e.clientY;
+    dragging.virtualX += dxRaw * dragging.sensitivity;
+    dragging.virtualY += dyRaw * dragging.sensitivity;
+    // 画面外へ大きく飛んでいかないように緩めにクランプする
+    dragging.virtualX = Math.max(-40, Math.min(window.innerWidth + 40, dragging.virtualX));
+    dragging.virtualY = Math.max(-100, Math.min(window.innerHeight + 100, dragging.virtualY));
+    const cx = dragging.virtualX, cy = dragging.virtualY;
     dragging.cloneEl.style.left = cx + 'px';
     dragging.cloneEl.style.top = cy + 'px';
 
