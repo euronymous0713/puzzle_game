@@ -60,17 +60,28 @@ window.CCB = window.CCB || {};
         const el = cellEls[r][c];
         if(prev === v) continue;
         if(v && !prev){
-          el.classList.remove('cell-clear');
+          // heal-cellは無限ループのpulseアニメーションを持つため、cell-popと同時に
+          // 付いているとCSSの優先順位でcell-pop側が再生されない。一旦外してポップ
+          // 演出を終わらせてから、必要ならheal-cellを付け直す。
+          el.classList.remove('cell-clear', 'heal-cell');
           el.style.background = CCB.cellBg(v);
-          el.classList.toggle('heal-cell', v === CCB.HEAL);
           playAnim(el, 'cell-pop');
+          if(v === CCB.HEAL){
+            el.addEventListener('animationend', function onPopEnd(){
+              el.classList.add('heal-cell');
+              el.removeEventListener('animationend', onPopEnd);
+            }, { once:true });
+          }
         } else if(!v && prev){
+          // 同様の理由で、heal-cellが付いたままだとcell-clearの消滅アニメーションが
+          // 再生されず(animationendも発火せず)ブロックが消えなくなるため先に外す。
+          el.classList.remove('heal-cell');
           el.style.background = CCB.cellBg(prev);
           el.classList.remove('cell-pop');
           playAnim(el, 'cell-clear');
           el.addEventListener('animationend', function onEnd(){
             el.style.background = '';
-            el.classList.remove('cell-clear', 'heal-cell');
+            el.classList.remove('cell-clear');
             el.removeEventListener('animationend', onEnd);
           }, { once:true });
         } else {
