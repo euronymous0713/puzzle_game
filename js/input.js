@@ -95,11 +95,16 @@ window.CCB = window.CCB || {};
     const isTouch = e.pointerType !== 'mouse';
     const lift = isTouch ? TOUCH_LIFT : 0;
     const sensitivity = isTouch ? TOUCH_SENSITIVITY : 1;
+    // pointermoveは1秒に何十回も発火するため、盤面/トレイのrectはドラッグ開始時に
+    // 1回だけ測っておく(毎回getBoundingClientRectを呼ぶとレイアウト再計算が積み重なり、
+    // 非力なスマホでドラッグ中に固まる原因になるため)
+    const boardRect = selfBoardEl.getBoundingClientRect();
     dragging = {
       idx, piece, pointerId: e.pointerId, lift, sensitivity,
       lastRawX: e.clientX, lastRawY: e.clientY,
       // 見た目上のミノの位置(指の移動量を増幅して動かす仮想位置)
       virtualX: e.clientX, virtualY: e.clientY - lift,
+      boardRect, trayRect: trayEl.getBoundingClientRect(), cellSize: boardRect.width / N,
     };
     lastTarget = null;
     if(slot.setPointerCapture) slot.setPointerCapture(e.pointerId);
@@ -132,20 +137,22 @@ window.CCB = window.CCB || {};
     // ミノ(見た目の位置=cy)がトレイまで戻ったら、盤面には置かずキャンセルできるようにする。
     // ここは指の生位置(e.clientY)ではなくcyで判定する必要がある。生位置で判定すると、
     // リフト分だけ盤面の最下段に指が届く前にトレイ領域に入ってしまい、最下段に置けなくなる。
-    const trayRect = trayEl.getBoundingClientRect();
+    const trayRect = dragging.trayRect;
     if(cy >= trayRect.top){
-      clearPreview();
-      lastTarget = null;
+      if(lastTarget !== null){ clearPreview(); lastTarget = null; }
       return;
     }
 
-    const rect = selfBoardEl.getBoundingClientRect();
-    const cellSize = rect.width / N;
+    const rect = dragging.boardRect;
+    const cellSize = dragging.cellSize;
     const {w,h} = pieceBBox(dragging.piece.cells);
     let or = Math.round((cy - rect.top) / cellSize - h/2);
     let oc = Math.round((cx - rect.left) / cellSize - w/2);
     or = Math.max(0, Math.min(N-h, or));
     oc = Math.max(0, Math.min(N-w, oc));
+    // 指が細かく揺れただけで同じマス目のままなら、盤面シミュレーション(findGroups)を
+    // 毎回やり直す必要はない。ここを省くことでドラッグ中のCPU負荷を大きく減らせる。
+    if(lastTarget && lastTarget.or === or && lastTarget.oc === oc) return;
     const valid = canPlace(CCB.state.self.board, dragging.piece.cells, or, oc);
     applyPreview(or, oc, dragging.piece, valid);
     lastTarget = { or, oc, valid };
