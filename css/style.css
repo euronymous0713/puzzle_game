@@ -104,6 +104,18 @@ body::before{
 .tech-name{ font-size:13px; font-weight:bold; }
 .tech-mult{ font-size:11px; opacity:0.7; }
 
+.how-to-list{
+  width:100%; max-height:58vh; overflow-y:auto;
+  display:flex; flex-direction:column; gap:2px;
+  border:1px solid var(--line); border-radius:16px; background:var(--panel);
+  box-shadow:0 6px 18px rgba(0,0,0,0.3);
+  padding:4px 0;
+}
+.how-to-section{ padding:10px 14px; border-bottom:1px solid var(--line); text-align:left; }
+.how-to-section:last-child{ border-bottom:none; }
+.how-to-title{ font-size:13px; font-weight:bold; color:var(--accent); margin-bottom:4px; }
+.how-to-text{ font-size:12px; line-height:1.6; opacity:0.85; margin:0; }
+
 #app{
   position:relative; z-index:1; max-width:480px; margin:0 auto;
   height:100vh; height:100dvh;

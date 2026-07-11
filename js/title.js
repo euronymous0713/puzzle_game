@@ -14,9 +14,10 @@ window.CCB = window.CCB || {};
   const leaveBtn = document.getElementById('leaveBtn');
   const techPanel = document.getElementById('techPanel');
   const techListEl = document.getElementById('techList');
+  const howToPanel = document.getElementById('howToPanel');
 
   function showPanel(panel){
-    [menuButtons, createPanel, joinPanel, techPanel].forEach(p => p.classList.add('hidden'));
+    [menuButtons, createPanel, joinPanel, techPanel, howToPanel].forEach(p => p.classList.add('hidden'));
     panel.classList.remove('hidden');
   }
 
@@ -71,6 +72,14 @@ window.CCB = window.CCB || {};
   });
 
   document.getElementById('btnCloseTech').addEventListener('click', () => {
+    showPanel(menuButtons);
+  });
+
+  document.getElementById('btnShowHowTo').addEventListener('click', () => {
+    showPanel(howToPanel);
+  });
+
+  document.getElementById('btnCloseHowTo').addEventListener('click', () => {
     showPanel(menuButtons);
   });
 

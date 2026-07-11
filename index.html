@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=M+PLUS+Rounded+1c:wght@500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=15">
+<link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 
@@ -19,6 +19,7 @@
     <button id="btnShowCreate" class="menu-btn">ルームを作る</button>
     <button id="btnShowJoin" class="menu-btn">ルームに参加</button>
     <button id="btnShowTech" class="menu-btn small">技一覧</button>
+    <button id="btnShowHowTo" class="menu-btn small">遊び方</button>
   </div>
 
   <div id="createPanel" class="menu-panel hidden">
@@ -41,6 +42,36 @@
     <p class="panel-desc">技一覧(5マス以上のつながりで発動。4マス消しは技名なし)</p>
     <div id="techList" class="tech-list"></div>
     <button id="btnCloseTech" class="menu-btn ghost">戻る</button>
+  </div>
+
+  <div id="howToPanel" class="menu-panel hidden">
+    <div id="howToList" class="how-to-list">
+      <div class="how-to-section">
+        <div class="how-to-title">勝利条件</div>
+        <p class="how-to-text">お互いHP100でスタート。相手のHPを0にするか、相手が自分の盤面に手持ちのピースを1つも置けなくなったら勝ち。逆に自分が置けなくなったら負け。</p>
+      </div>
+      <div class="how-to-section">
+        <div class="how-to-title">ピースを置く</div>
+        <p class="how-to-text">下の手持ち(3個セット)からピースをドラッグして、自分の8×8盤面に配置する。3個すべて使い切ると次の3個セットが補充される。</p>
+      </div>
+      <div class="how-to-section">
+        <div class="how-to-title">ブロックを消す</div>
+        <p class="how-to-text">同じ色のブロックが上下左右に4つ以上つながると消えて、相手にダメージを与える。ピースは基本1色だが、一部のマスだけ別の色が混ざることがあるので配置には注意。</p>
+      </div>
+      <div class="how-to-section">
+        <div class="how-to-title">技(わざ)</div>
+        <p class="how-to-text">5マス以上のつながりは形に応じて「技」が発動し、ダメージが割り増しされる。形の一覧と倍率は「技一覧」で確認できる。一度に複数のグループを同時に消すとさらにボーナスが入る。</p>
+      </div>
+      <div class="how-to-section">
+        <div class="how-to-title">回復ブロック(ハート)</div>
+        <p class="how-to-text">ハートのブロックは色のマッチには参加しないが、消えるブロックに隣接していると一緒に消えてHPを回復する。</p>
+      </div>
+      <div class="how-to-section">
+        <div class="how-to-title">対戦方法</div>
+        <p class="how-to-text">「CPUと対戦」でひとりでも遊べる。「ルームを作る」でコードを発行し、それを相手に伝えて「ルームに参加」で入力すれば、離れた相手とオンラインで1対1対戦ができる。</p>
+      </div>
+    </div>
+    <button id="btnCloseHowTo" class="menu-btn ghost">戻る</button>
   </div>
 </div>
 
@@ -80,13 +111,13 @@
 </div>
 
 <script src="https://unpkg.com/peerjs@1/dist/peerjs.min.js"></script>
-<script src="js/shapes.js?v=15"></script>
-<script src="js/board.js?v=15"></script>
-<script src="js/state.js?v=15"></script>
-<script src="js/net.js?v=15"></script>
-<script src="js/render.js?v=15"></script>
-<script src="js/input.js?v=15"></script>
-<script src="js/title.js?v=15"></script>
-<script src="js/main.js?v=15"></script>
+<script src="js/shapes.js?v=16"></script>
+<script src="js/board.js?v=16"></script>
+<script src="js/state.js?v=16"></script>
+<script src="js/net.js?v=16"></script>
+<script src="js/render.js?v=16"></script>
+<script src="js/input.js?v=16"></script>
+<script src="js/title.js?v=16"></script>
+<script src="js/main.js?v=16"></script>
 </body>
 </html>
