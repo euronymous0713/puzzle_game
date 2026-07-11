@@ -112,8 +112,28 @@ window.CCB = window.CCB || {};
   }
 
   // 技は5マス以上の消し方にのみ付く。4マス消しは形によらず技名なし。
-  const PLUS5 = [[0,1],[1,0],[1,1],[1,2],[2,1]];
-  const PLUS5_KEYS = allOrientKeys(PLUS5);
+  // 倍率はおおまかに「作りにくさ(対称性・分岐の数・サイズ)」に応じて段階的に設定。
+  const NAMED_SHAPES = [
+    // --- 5マス(ペントミノ) ---
+    { cells:[[0,1],[1,0],[1,1],[1,2],[2,1]], name:'クロスバースト', mult:1.4 },
+    { cells:[[0,0],[0,1],[0,2],[1,1],[2,1]], name:'Tプラント', mult:1.35 },
+    { cells:[[0,0],[1,0],[2,0],[3,0],[3,1]], name:'Lスラッシュ', mult:1.35 },
+    { cells:[[0,0],[0,1],[1,1],[2,1],[2,2]], name:'Zウェッジ', mult:1.4 },
+    { cells:[[0,0],[0,1],[1,0],[1,1],[2,0]], name:'Pブロック', mult:1.4 },
+    { cells:[[0,0],[0,2],[1,0],[1,1],[1,2]], name:'ホースシュー', mult:1.45 },
+    { cells:[[0,0],[1,0],[2,0],[2,1],[2,2]], name:'Vコーナー', mult:1.45 },
+    { cells:[[0,1],[1,0],[1,1],[2,1],[3,1]], name:'Yランス', mult:1.5 },
+    { cells:[[0,1],[1,1],[2,0],[2,1],[3,0]], name:'Nステップ', mult:1.5 },
+    { cells:[[0,0],[1,0],[1,1],[2,1],[2,2]], name:'Wステア', mult:1.55 },
+    { cells:[[0,1],[0,2],[1,0],[1,1],[2,1]], name:'Fツイスト', mult:1.6 },
+    // --- 7マス以上 ---
+    { cells:[[0,0],[0,2],[1,0],[1,1],[1,2],[2,0],[2,2]], name:'Hゲート', mult:1.7 },
+    { cells:[[0,2],[1,2],[2,0],[2,1],[2,2],[2,3],[2,4],[3,2],[4,2]], name:'グランドクロス', mult:1.85 },
+  ];
+  const NAMED_SHAPE_LOOKUP = {};
+  for(const shape of NAMED_SHAPES){
+    for(const key of allOrientKeys(shape.cells)) NAMED_SHAPE_LOOKUP[key] = { name:shape.name, mult:shape.mult };
+  }
 
   function classifyShape(cellsRaw){
     const cells = normalize(cellsRaw);
@@ -123,9 +143,8 @@ window.CCB = window.CCB || {};
     if(allSameRow || allSameCol){
       return { name:'ライン・ブレイク', mult: 1.2 + 0.05*(size-4) };
     }
-    if(size===5 && PLUS5_KEYS.has(shapeKey(cells))){
-      return { name:'クロスバースト', mult:1.4 };
-    }
+    const hit = NAMED_SHAPE_LOOKUP[shapeKey(cells)];
+    if(hit) return hit;
     return { name:'フリーフォーム', mult:1.0 };
   }
 
