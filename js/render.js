@@ -29,45 +29,17 @@ window.CCB = window.CCB || {};
   let prevOppBoard = null;
   let prevSelfHp = null;
   let prevOppHp = null;
-  let prevSelfBlobSigs = new Set();
-  let prevOppBlobSigs = new Set();
+  let prevSelfLinkKeys = new Set();
+  let prevOppLinkKeys = new Set();
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
-  // 盤面の上に重ねる、繋がったブロックのまとまり(SVGの塊)を描くレイヤーを作る。
-  // 形の合成にはmetaball(メタボール)技法を使う: 各マスを円としてぼかし+コントラストで
-  // 融合させ(goo フィルター)、輪郭がヒョウタン状にくびれて繋がるようにする。
-  // 色・光沢はこのフィルターを通さない別レイヤーで描き、goo側は「マスク」としてだけ使う
-  // ことで、ぼかしフィルターがツヤのグラデーションを潰してしまうのを防ぐ。
-  function createBlobLayer(boardEl){
+  // 盤面の上に重ねる、同色で隣接するブロックの中心同士を結ぶ線を描くレイヤーを作る。
+  // ブロック自体の形は変えず(常に個別の丸いブロックのまま)、Two Dots風に
+  // 「繋がっている」ことだけを細い線で示す。
+  function createLinkLayer(boardEl){
     const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('class', 'board-blobs');
-    const defs = document.createElementNS(SVG_NS, 'defs');
-
-    const filter = document.createElementNS(SVG_NS, 'filter');
-    filter.setAttribute('id', 'goo-' + boardEl.id);
-    filter.setAttribute('x', '-50%'); filter.setAttribute('y', '-50%');
-    filter.setAttribute('width', '200%'); filter.setAttribute('height', '200%');
-    const blur = document.createElementNS(SVG_NS, 'feGaussianBlur');
-    blur.setAttribute('in', 'SourceGraphic'); blur.setAttribute('stdDeviation', '6'); blur.setAttribute('result', 'blur');
-    const matrix = document.createElementNS(SVG_NS, 'feColorMatrix');
-    matrix.setAttribute('in', 'blur');
-    matrix.setAttribute('values', '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10');
-    filter.appendChild(blur); filter.appendChild(matrix);
-    defs.appendChild(filter);
-
-    const grad = document.createElementNS(SVG_NS, 'radialGradient');
-    grad.setAttribute('id', 'gemGrad-' + boardEl.id);
-    grad.setAttribute('gradientUnits', 'objectBoundingBox');
-    grad.setAttribute('cx', '28%'); grad.setAttribute('cy', '22%'); grad.setAttribute('r', '75%');
-    const stop1 = document.createElementNS(SVG_NS, 'stop');
-    stop1.setAttribute('offset', '0%'); stop1.setAttribute('stop-color', '#fff'); stop1.setAttribute('stop-opacity', '0.75');
-    const stop2 = document.createElementNS(SVG_NS, 'stop');
-    stop2.setAttribute('offset', '42%'); stop2.setAttribute('stop-color', '#fff'); stop2.setAttribute('stop-opacity', '0');
-    grad.appendChild(stop1); grad.appendChild(stop2);
-    defs.appendChild(grad);
-
-    svg.appendChild(defs);
+    svg.setAttribute('class', 'board-links');
     boardEl.appendChild(svg);
     return svg;
   }
@@ -87,8 +59,8 @@ window.CCB = window.CCB || {};
   }
   buildBoardDom(selfBoardEl, selfCellEls);
   buildBoardDom(oppBoardEl, oppCellEls);
-  const selfBlobSvg = createBlobLayer(selfBoardEl);
-  const oppBlobSvg = createBlobLayer(oppBoardEl);
+  const selfLinkSvg = createLinkLayer(selfBoardEl);
+  const oppLinkSvg = createLinkLayer(oppBoardEl);
 
   // 再生し終わったらクラスを外しておく一過性の演出用(他の演出クラスとの衝突を防ぐ)
   function playAnimOnce(el, className){
@@ -134,7 +106,6 @@ window.CCB = window.CCB || {};
   }
 
   const BOARD_CELL_RADIUS = 13; // .cellのborder-radiusと合わせる
-  const BLOB_RADIUS = 13;
 
   function renderBoard(cellEls, board, prevBoard){
     for(let r=0;r<N;r++){
@@ -185,18 +156,14 @@ window.CCB = window.CCB || {};
     }
   }
 
-  function regionSignature(cells){
-    return cells.map(([r,c]) => r + ',' + c).sort().join(';');
-  }
-
-  // 同色に繋がったセルの集合(2マス以上)を、metaball(円をぼかし+コントラストで
-  // 融合させる)技法でヒョウタン状にくびれて繋がる1つの塊として、個々のセルの上に
-  // 重ねて描く。孤立した1マスはSVGを使わず、セル自身の丸み・ツヤ・影だけで表示する。
+  // 同色で4方向に隣接するブロックの中心同士を、細い線で結ぶ(Two Dots風)。
+  // ブロック自体の形・色・光沢は一切変えない。前回から既にあった線は
+  // アニメーションを再生させず、新しく繋がった線だけふわっと伸びて出現させる。
   //
   // 実測はセル1個分・盤面のスタイル情報だけにとどめ、残りは算術計算する
   // (セルごとにgetBoundingClientRectを呼ぶとレイアウト再計算が何度も走り、
-  // アニメーションがカクつく=コマ送りに見える原因になるため)。
-  function renderBlobs(svg, cellEls, board, prevSigs){
+  // アニメーションがカクつく原因になるため)。
+  function renderLinks(svg, cellEls, board, prevKeys){
     const boardEl = svg.parentElement;
     const sample = cellEls[0][0].getBoundingClientRect();
     const boardRect = boardEl.getBoundingClientRect();
@@ -206,64 +173,34 @@ window.CCB = window.CCB || {};
     const padTop = parseFloat(cs.paddingTop) || 0;
     const step = sample.width + gap;
     const cellSize = sample.width;
-    const circleR = cellSize * 0.52; // 隙間(gap)を越えて隣の円と重なるよう気持ち大きめに
-    const boardId = boardEl.id;
+    const center = (r,c) => ({ x: padLeft + c*step + cellSize/2, y: padTop + r*step + cellSize/2 });
 
     svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
-    Array.from(svg.querySelectorAll('.blob-group')).forEach(g => g.remove());
-    Array.from(svg.querySelectorAll('mask')).forEach(m => m.remove());
+    Array.from(svg.querySelectorAll('line')).forEach(l => l.remove());
 
-    const regions = CCB.getColorRegions(board, N).filter(g => g.cells.length >= 2);
-    const newSigs = new Set();
-    const defs = svg.querySelector('defs');
-    let maskIdx = 0;
-    for(const region of regions){
-      const sig = regionSignature(region.cells);
-      newSigs.add(sig);
-      const isNew = !prevSigs.has(sig);
-      const maskId = `blobmask-${boardId}-${maskIdx++}`;
-
-      const mask = document.createElementNS(SVG_NS, 'mask');
-      mask.setAttribute('id', maskId);
-      mask.setAttribute('maskUnits', 'userSpaceOnUse');
-      const gooGroup = document.createElementNS(SVG_NS, 'g');
-      gooGroup.setAttribute('filter', `url(#goo-${boardId})`);
-      let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
-      for(const [r,c] of region.cells){
-        const cx = padLeft + c*step + cellSize/2;
-        const cy = padTop + r*step + cellSize/2;
-        const circle = document.createElementNS(SVG_NS, 'circle');
-        circle.setAttribute('cx', cx); circle.setAttribute('cy', cy); circle.setAttribute('r', circleR);
-        circle.setAttribute('fill', 'white');
-        gooGroup.appendChild(circle);
-        minX = Math.min(minX, cx-circleR); maxX = Math.max(maxX, cx+circleR);
-        minY = Math.min(minY, cy-circleR); maxY = Math.max(maxY, cy+circleR);
+    const newKeys = new Set();
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const v = board[r][c];
+        if(!v || v === CCB.HEAL) continue;
+        if(c+1<N && board[r][c+1]===v){
+          addLink('h'+r+'-'+c, center(r,c), center(r,c+1), v);
+        }
+        if(r+1<N && board[r+1][c]===v){
+          addLink('v'+r+'-'+c, center(r,c), center(r+1,c), v);
+        }
       }
-      mask.appendChild(gooGroup);
-      defs.appendChild(mask);
-
-      const g = document.createElementNS(SVG_NS, 'g');
-      g.setAttribute('class', 'blob-group' + (isNew ? ' blob-in' : ''));
-      const pad = 4; // ぼかしがはみ出す分の余白
-      const rectX = minX - pad, rectY = minY - pad, rectW = (maxX-minX)+pad*2, rectH = (maxY-minY)+pad*2;
-
-      const base = document.createElementNS(SVG_NS, 'rect');
-      base.setAttribute('x', rectX); base.setAttribute('y', rectY);
-      base.setAttribute('width', rectW); base.setAttribute('height', rectH);
-      base.setAttribute('fill', region.color);
-      base.setAttribute('mask', `url(#${maskId})`);
-      g.appendChild(base);
-
-      const gloss = document.createElementNS(SVG_NS, 'rect');
-      gloss.setAttribute('x', rectX); gloss.setAttribute('y', rectY);
-      gloss.setAttribute('width', rectW); gloss.setAttribute('height', rectH);
-      gloss.setAttribute('fill', `url(#gemGrad-${boardId})`);
-      gloss.setAttribute('mask', `url(#${maskId})`);
-      g.appendChild(gloss);
-
-      svg.appendChild(g);
     }
-    return newSigs;
+    function addLink(key, a, b, color){
+      newKeys.add(key);
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
+      line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
+      line.setAttribute('class', 'link-line' + (prevKeys.has(key) ? '' : ' link-in'));
+      line.setAttribute('stroke', color);
+      svg.appendChild(line);
+    }
+    return newKeys;
   }
 
   function hpColor(pct){
@@ -338,8 +275,8 @@ window.CCB = window.CCB || {};
     const state = CCB.state;
     renderBoard(selfCellEls, state.self.board, prevSelfBoard);
     renderBoard(oppCellEls, state.opp.board, prevOppBoard);
-    prevSelfBlobSigs = renderBlobs(selfBlobSvg, selfCellEls, state.self.board, prevSelfBlobSigs);
-    prevOppBlobSigs = renderBlobs(oppBlobSvg, oppCellEls, state.opp.board, prevOppBlobSigs);
+    prevSelfLinkKeys = renderLinks(selfLinkSvg, selfCellEls, state.self.board, prevSelfLinkKeys);
+    prevOppLinkKeys = renderLinks(oppLinkSvg, oppCellEls, state.opp.board, prevOppLinkKeys);
     prevSelfBoard = CCB.cloneBoard(state.self.board);
     prevOppBoard = CCB.cloneBoard(state.opp.board);
     renderHp();
