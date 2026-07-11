@@ -153,6 +153,8 @@ window.CCB = window.CCB || {};
     prevOppHp = oppHp;
   }
 
+  const PIECE_CELL_RADIUS = 5;
+
   function buildPieceGridEl(piece){
     const {w,h} = CCB.pieceBBox(piece.cells);
     const grid = document.createElement('div');
@@ -161,13 +163,26 @@ window.CCB = window.CCB || {};
     grid.style.gridTemplateRows = `repeat(${h}, 15px)`;
     const map = {};
     piece.cells.forEach(([r,c], i) => { map[r+','+c] = piece.colors[i]; });
+    const filled = (r,c) => map[r+','+c] !== undefined;
     for(let r=0;r<h;r++){
       for(let c=0;c<w;c++){
         const cell = document.createElement('div');
-        cell.className = 'piece-cell';
         const color = map[r+','+c];
-        cell.style.background = color ? CCB.cellBg(color) : 'transparent';
-        if(color === CCB.HEAL) cell.classList.add('heal-cell');
+        if(color){
+          cell.className = 'piece-cell';
+          cell.style.background = CCB.cellBg(color);
+          if(color === CCB.HEAL) cell.classList.add('heal-cell');
+          // 隣接する同じミノのマスとくっついて見えるよう、隣がある側の角は丸めない
+          const nUp = filled(r-1,c), nDown = filled(r+1,c), nLeft = filled(r,c-1), nRight = filled(r,c+1);
+          const tl = (nUp || nLeft) ? 0 : PIECE_CELL_RADIUS;
+          const tr = (nUp || nRight) ? 0 : PIECE_CELL_RADIUS;
+          const br = (nDown || nRight) ? 0 : PIECE_CELL_RADIUS;
+          const bl = (nDown || nLeft) ? 0 : PIECE_CELL_RADIUS;
+          cell.style.borderRadius = `${tl}px ${tr}px ${br}px ${bl}px`;
+        } else {
+          // 空きマスは何も表示しない(影・背景ともに付けない)
+          cell.className = 'piece-cell piece-cell-empty';
+        }
         grid.appendChild(cell);
       }
     }
