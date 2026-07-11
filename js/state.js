@@ -24,7 +24,11 @@ window.CCB = window.CCB || {};
     if(!piece) return { ok:false };
     if(!canPlace(player.board, piece.cells, or, oc)) return { ok:false };
     doPlace(player.board, piece, or, oc);
-    player.tray[trayIdx] = genPiece();
+    // 3個セットのミノを使い切ったら、まとめて次の3個セットを補充する
+    player.tray[trayIdx] = null;
+    if(player.tray.every(p => !p)){
+      player.tray = [genPiece(), genPiece(), genPiece()];
+    }
     const groups = findGroups(player.board);
     const result = { ok:true, damage:0, heal:0, names:[], hasTechnique:false };
     if(groups.length){
