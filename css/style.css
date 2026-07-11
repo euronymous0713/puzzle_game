@@ -3,7 +3,11 @@
   --pink:#FF6B9D; --mint:#4ECDC4; --yellow:#FFE66D; --purple:#A78BFA; --orange:#FF9F5B;
   --accent:#A78BFA;
 }
-*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+*{
+  box-sizing:border-box; -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none; -webkit-user-select:none; user-select:none;
+}
+input{ -webkit-user-select:text; user-select:text; }
 button, input{ font-family:inherit; }
 html,body{ height:100%; margin:0; overscroll-behavior:none; }
 body{
