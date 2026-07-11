@@ -80,12 +80,20 @@ window.CCB = window.CCB || {};
     return SIZE_WEIGHTS[SIZE_WEIGHTS.length - 1][0];
   }
 
+  // ピースは基本的に1色(狙って並べやすくするため)だが、たまに一部のマスだけ
+  // 別の色が混ざる(全マス同色だと簡単すぎるため、少しだけ計画を崩す要素を残す)。
+  const OFF_COLOR_CHANCE = 0.25;
   function genPiece(){
     const size = pickSize();
     const cells = genShape(size);
-    // ピース内は全マス同じ色にする(色を狙って並べやすくするため)
-    const color = COLORS[Math.floor(Math.random()*COLORS.length)];
-    const colors = cells.map(() => color);
+    const primary = COLORS[Math.floor(Math.random()*COLORS.length)];
+    const colors = cells.map(() => {
+      if(Math.random() < OFF_COLOR_CHANCE){
+        const others = COLORS.filter(c => c !== primary);
+        return others[Math.floor(Math.random()*others.length)];
+      }
+      return primary;
+    });
     if(Math.random() < HEAL_CHANCE){
       colors[Math.floor(Math.random()*colors.length)] = HEAL;
     }
