@@ -94,6 +94,13 @@ window.CCB = window.CCB || {};
       }
       return primary;
     });
+    // 4マスピースが単体でそのまま4マス消しになれてしまうと強すぎるため、
+    // 必ず1マスは別の色を混ぜる
+    if(size === 4 && colors.every(c => c === primary)){
+      const idx = Math.floor(Math.random()*colors.length);
+      const others = COLORS.filter(c => c !== primary);
+      colors[idx] = others[Math.floor(Math.random()*others.length)];
+    }
     if(Math.random() < HEAL_CHANCE){
       colors[Math.floor(Math.random()*colors.length)] = HEAL;
     }
