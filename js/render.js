@@ -122,6 +122,67 @@ window.CCB = window.CCB || {};
     }
   }
 
+  const BOARD_CELL_RADIUS = 10; // .cellのborder-radiusと合わせる
+
+  // 盤面に置いたブロックは、隣が同じ色(同じマスの値)なら繋がって見えるよう
+  // その側の角を丸めない
+  function applyConnectedRadii(cellEls, board){
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const v = board[r][c];
+        const el = cellEls[r][c];
+        if(!v){ el.style.borderRadius = ''; continue; }
+        const same = (rr,cc) => rr>=0 && rr<N && cc>=0 && cc<N && board[rr][cc] === v;
+        const nUp = same(r-1,c), nDown = same(r+1,c), nLeft = same(r,c-1), nRight = same(r,c+1);
+        const tl = (nUp || nLeft) ? 0 : BOARD_CELL_RADIUS;
+        const tr = (nUp || nRight) ? 0 : BOARD_CELL_RADIUS;
+        const br = (nDown || nRight) ? 0 : BOARD_CELL_RADIUS;
+        const bl = (nDown || nLeft) ? 0 : BOARD_CELL_RADIUS;
+        el.style.borderRadius = `${tl}px ${tr}px ${br}px ${bl}px`;
+      }
+    }
+  }
+
+  // 隣接する同色マスの間のマス目の隙間を同色で埋めて、1つに繋がって見えるようにする
+  function buildBridges(boardEl, cellEls, board){
+    boardEl.querySelectorAll('.cell-bridge').forEach(el => el.remove());
+    const boardRect = boardEl.getBoundingClientRect();
+    // 絶対配置の子要素の基準はborder-boxではなくpadding-box(borderの内側)になるため補正する
+    const cs = getComputedStyle(boardEl);
+    const originX = boardRect.left + (parseFloat(cs.borderLeftWidth) || 0);
+    const originY = boardRect.top + (parseFloat(cs.borderTopWidth) || 0);
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const v = board[r][c];
+        if(!v) continue;
+        if(c+1<N && board[r][c+1]===v){
+          const a = cellEls[r][c].getBoundingClientRect();
+          const b = cellEls[r][c+1].getBoundingClientRect();
+          const bridge = document.createElement('div');
+          bridge.className = 'cell-bridge';
+          bridge.style.background = CCB.cellBg(v);
+          bridge.style.left = (a.right - originX) + 'px';
+          bridge.style.top = (a.top - originY) + 'px';
+          bridge.style.width = (b.left - a.right) + 'px';
+          bridge.style.height = a.height + 'px';
+          boardEl.appendChild(bridge);
+        }
+        if(r+1<N && board[r+1][c]===v){
+          const a = cellEls[r][c].getBoundingClientRect();
+          const b = cellEls[r+1][c].getBoundingClientRect();
+          const bridge = document.createElement('div');
+          bridge.className = 'cell-bridge';
+          bridge.style.background = CCB.cellBg(v);
+          bridge.style.left = (a.left - originX) + 'px';
+          bridge.style.top = (a.bottom - originY) + 'px';
+          bridge.style.width = a.width + 'px';
+          bridge.style.height = (b.top - a.bottom) + 'px';
+          boardEl.appendChild(bridge);
+        }
+      }
+    }
+  }
+
   function hpColor(pct){
     if(pct > 0.5) return '#4ECDC4';
     if(pct > 0.2) return '#FFE66D';
@@ -153,8 +214,6 @@ window.CCB = window.CCB || {};
     prevOppHp = oppHp;
   }
 
-  const PIECE_CELL_RADIUS = 5;
-
   function buildPieceGridEl(piece){
     const {w,h} = CCB.pieceBBox(piece.cells);
     const grid = document.createElement('div');
@@ -163,7 +222,6 @@ window.CCB = window.CCB || {};
     grid.style.gridTemplateRows = `repeat(${h}, 15px)`;
     const map = {};
     piece.cells.forEach(([r,c], i) => { map[r+','+c] = piece.colors[i]; });
-    const filled = (r,c) => map[r+','+c] !== undefined;
     for(let r=0;r<h;r++){
       for(let c=0;c<w;c++){
         const cell = document.createElement('div');
@@ -172,13 +230,6 @@ window.CCB = window.CCB || {};
           cell.className = 'piece-cell';
           cell.style.background = CCB.cellBg(color);
           if(color === CCB.HEAL) cell.classList.add('heal-cell');
-          // 隣接する同じミノのマスとくっついて見えるよう、隣がある側の角は丸めない
-          const nUp = filled(r-1,c), nDown = filled(r+1,c), nLeft = filled(r,c-1), nRight = filled(r,c+1);
-          const tl = (nUp || nLeft) ? 0 : PIECE_CELL_RADIUS;
-          const tr = (nUp || nRight) ? 0 : PIECE_CELL_RADIUS;
-          const br = (nDown || nRight) ? 0 : PIECE_CELL_RADIUS;
-          const bl = (nDown || nLeft) ? 0 : PIECE_CELL_RADIUS;
-          cell.style.borderRadius = `${tl}px ${tr}px ${br}px ${bl}px`;
         } else {
           // 空きマスは何も表示しない(影・背景ともに付けない)
           cell.className = 'piece-cell piece-cell-empty';
@@ -204,6 +255,10 @@ window.CCB = window.CCB || {};
     const state = CCB.state;
     renderBoard(selfCellEls, state.self.board, prevSelfBoard);
     renderBoard(oppCellEls, state.opp.board, prevOppBoard);
+    applyConnectedRadii(selfCellEls, state.self.board);
+    applyConnectedRadii(oppCellEls, state.opp.board);
+    buildBridges(selfBoardEl, selfCellEls, state.self.board);
+    buildBridges(oppBoardEl, oppCellEls, state.opp.board);
     prevSelfBoard = CCB.cloneBoard(state.self.board);
     prevOppBoard = CCB.cloneBoard(state.opp.board);
     renderHp();
