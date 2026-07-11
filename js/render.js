@@ -91,6 +91,54 @@ window.CCB = window.CCB || {};
     }
   }
 
+  const BOARD_CELL_RADIUS = 13; // .cellのborder-radiusと合わせる
+
+  function cellConnectivity(board, r, c){
+    const v = board[r][c];
+    if(!v) return null;
+    const same = (rr,cc) => rr>=0 && rr<N && cc>=0 && cc<N && board[rr][cc] === v;
+    return { up: same(r-1,c), down: same(r+1,c), left: same(r,c-1), right: same(r,c+1) };
+  }
+
+  // セルの見た目(角丸+背景)を現在の盤面から再計算して反映する。孤立したブロックは
+  // ツヤ感ありでしっかり丸く、隣と繋がっているブロックは継ぎ目側の角を落とし、
+  // 色をベタ塗り(ツヤ無し)にして境目の線が見えないようにする。
+  function applyCellAppearance(el, board, r, c){
+    const v = board[r][c];
+    if(!v){ el.style.borderRadius = ''; el.classList.remove('connected'); return; }
+    const conn = cellConnectivity(board, r, c);
+    const connected = conn.up || conn.down || conn.left || conn.right;
+    el.classList.toggle('connected', connected);
+    if(!connected){
+      el.style.borderRadius = BOARD_CELL_RADIUS + 'px';
+      el.style.background = CCB.cellBg(v);
+    } else {
+      const tl = (conn.up || conn.left) ? 0 : BOARD_CELL_RADIUS;
+      const tr = (conn.up || conn.right) ? 0 : BOARD_CELL_RADIUS;
+      const br = (conn.down || conn.right) ? 0 : BOARD_CELL_RADIUS;
+      const bl = (conn.down || conn.left) ? 0 : BOARD_CELL_RADIUS;
+      el.style.borderRadius = `${tl}px ${tr}px ${br}px ${bl}px`;
+      // 面取りの影が段差になって境目に線が見えてしまうため、繋がっているセルは影も消す
+      el.style.background = CCB.cellBg(v, true);
+    }
+  }
+
+  // 今回の描画では値が変わっていない既存セルのうち、隣に新しく同色ブロックが来た/
+  // 消えたことで見た目(角丸)が変わったものだけ、軽く弾ませる。
+  function applyConnectivityPass(cellEls, board, prevBoard){
+    for(let r=0;r<N;r++){
+      for(let c=0;c<N;c++){
+        const v = board[r][c];
+        const prevV = prevBoard ? prevBoard[r][c] : undefined;
+        if(v !== prevV || !v) continue;
+        const el = cellEls[r][c];
+        const before = el.style.borderRadius;
+        applyCellAppearance(el, board, r, c);
+        if(el.style.borderRadius !== before) playAnimOnce(el, 'connect-squish');
+      }
+    }
+  }
+
   function renderBoard(cellEls, board, prevBoard){
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
@@ -103,8 +151,7 @@ window.CCB = window.CCB || {};
           // 付いているとCSSの優先順位でcell-pop側が再生されない。一旦外してポップ
           // 演出を終わらせてから、必要ならheal-cellを付け直す。
           el.classList.remove('cell-clear', 'heal-cell');
-          el.style.background = CCB.cellBg(v);
-          el.style.borderRadius = '50%'; // 置いたブロックは四角いソケットではなく丸いぷよ状に
+          applyCellAppearance(el, board, r, c);
           playAnim(el, 'cell-pop');
           // cell-popは再生し終わったら外しておく。残したままだと、後で繋がった時の
           // connect-squishなど別のアニメーションと同時に付いてしまい衝突する。
@@ -130,40 +177,28 @@ window.CCB = window.CCB || {};
           el.addEventListener('animationend', function onEnd(){
             el.style.background = '';
             el.style.borderRadius = ''; // 空になったら四角いソケットに戻す
-            el.classList.remove('cell-clear', 'heal-clear');
+            el.classList.remove('cell-clear', 'heal-clear', 'connected');
             el.removeEventListener('animationend', onEnd);
           }, { once:true });
         } else {
-          el.style.background = CCB.cellBg(v);
-          el.style.borderRadius = v ? '50%' : '';
+          applyCellAppearance(el, board, r, c);
           el.classList.toggle('heal-cell', v === CCB.HEAL);
         }
       }
     }
   }
 
-  // 隣接する同色マスの間を、丸いブロックより細い「くびれ」で繋いで表面張力っぽく見せる。
-  // 前回から既にあった繋ぎ目はアニメーションを再生させず、新しく繋がった時だけ
-  // なめらかに伸びて繋がるようにする(繋ぎ目本体+両端セルの軽い揺れ)。
-  function buildBridges(boardEl, cellEls, board, prevBoard, prevKeys){
+  // 隣接する同色マスの間の隙間を同色(ツヤ無し・ベタ塗り)で埋めて、境目の線が
+  // 見えないよう1つに繋がって見えるようにする。前回から既にあった繋ぎ目は
+  // アニメーションを再生させず、新しく繋がった時だけふわっと出現させる。
+  function buildBridges(boardEl, cellEls, board, prevKeys){
     boardEl.querySelectorAll('.cell-bridge').forEach(el => el.remove());
     const boardRect = boardEl.getBoundingClientRect();
     // 絶対配置の子要素の基準はborder-boxではなくpadding-box(borderの内側)になるため補正する
     const cs = getComputedStyle(boardEl);
     const originX = boardRect.left + (parseFloat(cs.borderLeftWidth) || 0);
     const originY = boardRect.top + (parseFloat(cs.borderTopWidth) || 0);
-    const NECK_RATIO = 0.5; // ブロックの高さ/幅に対する、くびれ部分の太さの割合
-    const OVERLAP = 3; // 丸いブロックの内側まで少し重ねて継ぎ目を隠す(px)
     const newKeys = new Set();
-
-    // 新しく繋がったセルだけ軽く揺らす。ただし今まさに配置されたセル自身は
-    // 既にcell-popが再生されているため、二重に(競合する形で)揺らさない。
-    function squishIfNew(key, r1, c1, r2, c2, elA, elB){
-      if(prevKeys.has(key)) return '';
-      if(prevBoard[r1][c1]) playAnimOnce(elA, 'connect-squish');
-      if(prevBoard[r2][c2]) playAnimOnce(elB, 'connect-squish');
-      return ' bridge-in';
-    }
 
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
@@ -172,35 +207,29 @@ window.CCB = window.CCB || {};
         if(c+1<N && board[r][c+1]===v){
           const key = 'h'+r+'-'+c;
           newKeys.add(key);
-          const elA = cellEls[r][c], elB = cellEls[r][c+1];
-          const a = elA.getBoundingClientRect();
-          const b = elB.getBoundingClientRect();
-          const neck = a.height * NECK_RATIO;
+          const a = cellEls[r][c].getBoundingClientRect();
+          const b = cellEls[r][c+1].getBoundingClientRect();
           const bridge = document.createElement('div');
-          bridge.className = 'cell-bridge' + squishIfNew(key, r, c, r, c+1, elA, elB);
-          bridge.style.background = CCB.cellBg(v);
-          bridge.style.borderRadius = (neck/2) + 'px';
-          bridge.style.left = (a.right - originX - OVERLAP) + 'px';
-          bridge.style.top = (a.top - originY + (a.height - neck)/2) + 'px';
-          bridge.style.width = (b.left - a.right + OVERLAP*2) + 'px';
-          bridge.style.height = neck + 'px';
+          bridge.className = 'cell-bridge' + (prevKeys.has(key) ? '' : ' bridge-in');
+          bridge.style.background = CCB.cellBg(v, true);
+          bridge.style.left = (a.right - originX) + 'px';
+          bridge.style.top = (a.top - originY) + 'px';
+          bridge.style.width = (b.left - a.right) + 'px';
+          bridge.style.height = a.height + 'px';
           boardEl.appendChild(bridge);
         }
         if(r+1<N && board[r+1][c]===v){
           const key = 'v'+r+'-'+c;
           newKeys.add(key);
-          const elA = cellEls[r][c], elB = cellEls[r+1][c];
-          const a = elA.getBoundingClientRect();
-          const b = elB.getBoundingClientRect();
-          const neck = a.width * NECK_RATIO;
+          const a = cellEls[r][c].getBoundingClientRect();
+          const b = cellEls[r+1][c].getBoundingClientRect();
           const bridge = document.createElement('div');
-          bridge.className = 'cell-bridge' + squishIfNew(key, r, c, r+1, c, elA, elB);
-          bridge.style.background = CCB.cellBg(v);
-          bridge.style.borderRadius = (neck/2) + 'px';
-          bridge.style.left = (a.left - originX + (a.width - neck)/2) + 'px';
-          bridge.style.top = (a.bottom - originY - OVERLAP) + 'px';
-          bridge.style.width = neck + 'px';
-          bridge.style.height = (b.top - a.bottom + OVERLAP*2) + 'px';
+          bridge.className = 'cell-bridge' + (prevKeys.has(key) ? '' : ' bridge-in');
+          bridge.style.background = CCB.cellBg(v, true);
+          bridge.style.left = (a.left - originX) + 'px';
+          bridge.style.top = (a.bottom - originY) + 'px';
+          bridge.style.width = a.width + 'px';
+          bridge.style.height = (b.top - a.bottom) + 'px';
           boardEl.appendChild(bridge);
         }
       }
@@ -280,8 +309,10 @@ window.CCB = window.CCB || {};
     const state = CCB.state;
     renderBoard(selfCellEls, state.self.board, prevSelfBoard);
     renderBoard(oppCellEls, state.opp.board, prevOppBoard);
-    prevSelfBridgeKeys = buildBridges(selfBoardEl, selfCellEls, state.self.board, prevSelfBoard || CCB.boardEmpty(), prevSelfBridgeKeys);
-    prevOppBridgeKeys = buildBridges(oppBoardEl, oppCellEls, state.opp.board, prevOppBoard || CCB.boardEmpty(), prevOppBridgeKeys);
+    applyConnectivityPass(selfCellEls, state.self.board, prevSelfBoard);
+    applyConnectivityPass(oppCellEls, state.opp.board, prevOppBoard);
+    prevSelfBridgeKeys = buildBridges(selfBoardEl, selfCellEls, state.self.board, prevSelfBridgeKeys);
+    prevOppBridgeKeys = buildBridges(oppBoardEl, oppCellEls, state.opp.board, prevOppBridgeKeys);
     prevSelfBoard = CCB.cloneBoard(state.self.board);
     prevOppBoard = CCB.cloneBoard(state.opp.board);
     renderHp();

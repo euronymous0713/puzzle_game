@@ -22,10 +22,12 @@ window.CCB = window.CCB || {};
   const GEM_SHEEN =
     'radial-gradient(circle at 28% 22%, rgba(255,255,255,0.75), rgba(255,255,255,0) 42%), ' +
     'linear-gradient(155deg, rgba(255,255,255,0.28), rgba(0,0,0,0.32) 88%), ';
-  function cellBg(v){
+  // flat=trueの場合はツヤ感を付けない(色を完全一致させて、隣と繋がった時に
+  // 境目にグラデーションのズレが見えないようにするため)
+  function cellBg(v, flat){
     if(!v) return '';
     if(v === HEAL) return HEAL_BG;
-    return GEM_SHEEN + v;
+    return flat ? v : (GEM_SHEEN + v);
   }
 
   function shuffle(arr){
