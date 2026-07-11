@@ -12,11 +12,67 @@ window.CCB = window.CCB || {};
   const joinStatus = document.getElementById('joinStatus');
   const joinCodeInput = document.getElementById('joinCodeInput');
   const leaveBtn = document.getElementById('leaveBtn');
+  const techPanel = document.getElementById('techPanel');
+  const techListEl = document.getElementById('techList');
 
   function showPanel(panel){
-    [menuButtons, createPanel, joinPanel].forEach(p => p.classList.add('hidden'));
+    [menuButtons, createPanel, joinPanel, techPanel].forEach(p => p.classList.add('hidden'));
     panel.classList.remove('hidden');
   }
+
+  function buildTechShapeGrid(cells){
+    if(!cells){
+      const ph = document.createElement('div');
+      ph.className = 'tech-shape-placeholder';
+      ph.textContent = '?';
+      return ph;
+    }
+    const maxR = Math.max(...cells.map(c => c[0])) + 1;
+    const maxC = Math.max(...cells.map(c => c[1])) + 1;
+    const set = new Set(cells.map(c => c[0] + ',' + c[1]));
+    const grid = document.createElement('div');
+    grid.className = 'tech-shape';
+    grid.style.gridTemplateColumns = `repeat(${maxC}, 9px)`;
+    grid.style.gridTemplateRows = `repeat(${maxR}, 9px)`;
+    for(let r=0;r<maxR;r++){
+      for(let c=0;c<maxC;c++){
+        const cell = document.createElement('div');
+        cell.className = 'tech-shape-cell' + (set.has(r+','+c) ? ' on' : '');
+        grid.appendChild(cell);
+      }
+    }
+    return grid;
+  }
+
+  function renderTechList(){
+    techListEl.innerHTML = '';
+    CCB.getTechniqueList().forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'tech-row';
+      row.appendChild(buildTechShapeGrid(t.cells));
+      const info = document.createElement('div');
+      info.className = 'tech-info';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'tech-name';
+      nameEl.textContent = t.name;
+      const multEl = document.createElement('div');
+      multEl.className = 'tech-mult';
+      multEl.textContent = t.multText;
+      info.appendChild(nameEl);
+      info.appendChild(multEl);
+      row.appendChild(info);
+      techListEl.appendChild(row);
+    });
+  }
+
+  document.getElementById('btnShowTech').addEventListener('click', () => {
+    renderTechList();
+    showPanel(techPanel);
+  });
+
+  document.getElementById('btnCloseTech').addEventListener('click', () => {
+    showPanel(menuButtons);
+  });
 
   function showTitle(){
     CCB.mode = null;

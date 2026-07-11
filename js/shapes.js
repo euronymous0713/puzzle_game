@@ -152,6 +152,16 @@ window.CCB = window.CCB || {};
     return { name:'フリーフォーム', mult:1.0 };
   }
 
+  // タイトル画面の「技一覧」表示用。5マス以上のみが対象で、4マス消しには技名が付かない。
+  function getTechniqueList(){
+    const list = [
+      { name:'ライン・ブレイク', cells:[[0,0],[0,1],[0,2],[0,3],[0,4]], multText:'1.25倍〜(長いほど上昇)' },
+      ...NAMED_SHAPES.map(s => ({ name:s.name, cells:s.cells, multText: s.mult + '倍' })),
+      { name:'フリーフォーム', cells:null, multText:'1.0倍(上記以外の形)' },
+    ];
+    return list;
+  }
+
   function calcDamage(groups){
     let total = 0;
     const names = [];
@@ -182,5 +192,6 @@ window.CCB = window.CCB || {};
   CCB.genPiece = genPiece;
   CCB.pieceBBox = pieceBBox;
   CCB.classifyShape = classifyShape;
+  CCB.getTechniqueList = getTechniqueList;
   CCB.calcDamage = calcDamage;
 })(window.CCB);

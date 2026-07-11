@@ -15,6 +15,7 @@
     <button id="btnCpu" class="menu-btn">CPUと対戦</button>
     <button id="btnShowCreate" class="menu-btn">ルームを作る</button>
     <button id="btnShowJoin" class="menu-btn">ルームに参加</button>
+    <button id="btnShowTech" class="menu-btn small">技一覧</button>
   </div>
 
   <div id="createPanel" class="menu-panel hidden">
@@ -31,6 +32,12 @@
     <button id="btnJoinConfirm" class="menu-btn">参加する</button>
     <p id="joinStatus" class="panel-status"></p>
     <button id="btnCancelJoin" class="menu-btn ghost">戻る</button>
+  </div>
+
+  <div id="techPanel" class="menu-panel hidden">
+    <p class="panel-desc">技一覧(5マス以上のつながりで発動。4マス消しは技名なし)</p>
+    <div id="techList" class="tech-list"></div>
+    <button id="btnCloseTech" class="menu-btn ghost">戻る</button>
   </div>
 </div>
 
