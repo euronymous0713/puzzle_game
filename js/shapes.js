@@ -111,19 +111,7 @@ window.CCB = window.CCB || {};
     return keys;
   }
 
-  const TETROMINO = {
-    I: { cells:[[0,0],[0,1],[0,2],[0,3]], name:'ライン・ブレイク', mult:1.3 },
-    O: { cells:[[0,0],[0,1],[1,0],[1,1]], name:'スクエアクラッシュ', mult:1.3 },
-    T: { cells:[[0,0],[0,1],[0,2],[1,1]], name:'Tフォーム', mult:1.15 },
-    S: { cells:[[0,1],[0,2],[1,0],[1,1]], name:'Sツイスト', mult:1.15 },
-    Z: { cells:[[0,0],[0,1],[1,1],[1,2]], name:'Zツイスト', mult:1.15 },
-    J: { cells:[[0,0],[1,0],[1,1],[1,2]], name:'Jフック', mult:1.15 },
-    L: { cells:[[0,2],[1,0],[1,1],[1,2]], name:'Lフック', mult:1.15 },
-  };
-  const TETROMINO_LOOKUP = {};
-  for(const [k,v] of Object.entries(TETROMINO)){
-    for(const key of allOrientKeys(v.cells)) TETROMINO_LOOKUP[key] = { name:v.name, mult:v.mult };
-  }
+  // 技は5マス以上の消し方にのみ付く。4マス消しは形によらず技名なし。
   const PLUS5 = [[0,1],[1,0],[1,1],[1,2],[2,1]];
   const PLUS5_KEYS = allOrientKeys(PLUS5);
 
@@ -134,10 +122,6 @@ window.CCB = window.CCB || {};
     const allSameCol = cells.every(c => c[1]===cells[0][1]);
     if(allSameRow || allSameCol){
       return { name:'ライン・ブレイク', mult: 1.2 + 0.05*(size-4) };
-    }
-    if(size===4){
-      const hit = TETROMINO_LOOKUP[shapeKey(cells)];
-      if(hit) return hit;
     }
     if(size===5 && PLUS5_KEYS.has(shapeKey(cells))){
       return { name:'クロスバースト', mult:1.4 };
@@ -151,10 +135,14 @@ window.CCB = window.CCB || {};
     groups.forEach(g => {
       const size = g.cells.length;
       const base = size===4 ? 10 : size===5 ? 16 : size===6 ? 24 : 34;
-      const shape = classifyShape(g.cells);
-      const dmg = Math.round(base * shape.mult);
-      total += dmg;
-      names.push(shape.name + ' ' + dmg);
+      if(size >= 5){
+        const shape = classifyShape(g.cells);
+        const dmg = Math.round(base * shape.mult);
+        total += dmg;
+        names.push(shape.name + ' ' + dmg);
+      } else {
+        total += base;
+      }
     });
     if(groups.length > 1){
       const bonus = (groups.length-1) * 8;

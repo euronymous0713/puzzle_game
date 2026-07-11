@@ -220,7 +220,7 @@ window.CCB = window.CCB || {};
   function commitSelfPlacement(idx, r, c){
     const res = CCB.playerAction('self', idx, r, c);
     if(res.ok){
-      if(res.names.length) showSkillPopup(res.names, res.damage, res.heal, false);
+      if(res.damage > 0 || res.heal > 0) showSkillPopup(res.names, res.damage, res.heal, false);
       if(CCB.mode === 'online'){
         CCB.net.send({
           type: 'move',
@@ -239,7 +239,7 @@ window.CCB = window.CCB || {};
 
   function commitAiTick(){
     const res = CCB.aiTick();
-    if(res && res.ok && res.names.length){
+    if(res && res.ok && (res.damage > 0 || res.heal > 0)){
       showSkillPopup(res.names, res.damage, res.heal, true);
     }
     renderAll();
