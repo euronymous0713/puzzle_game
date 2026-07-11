@@ -3,17 +3,18 @@ window.CCB = window.CCB || {};
 
 (function(CCB){
   const N = 8;
-  const COLORS = ['#ff5252','#4fc3f7','#66bb6a','#ffd54f'];
+  // Two Dots/スイカゲーム的な彩度高めの5色パレット
+  const COLORS = ['#FF6B9D','#4ECDC4','#FFE66D','#A78BFA','#FF9F5B'];
 
   // 回復ブロック: 色マッチには参加しない特殊マス。消えるマスに隣接していると
   // 一緒に消えて「消したマス数」分だけHPを回復する。
-  // 通常色の緑と紛らわしくないよう、ピンク地に白いハート柄にする。
+  // 通常色にピンクを使うようになったため、紛らわしくないよう赤系のハートにする。
   const HEAL = 'HEAL';
   const HEAL_HEART_SVG = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 29'>" +
-    "<path d='M16 29C16 29 0 18.2 0 8.6 0 3.5 4.1 0 8.7 0 12.2 0 15 2.1 16 5.1 17 2.1 19.8 0 23.3 0 27.9 0 32 3.5 32 8.6 32 18.2 16 29 16 29Z' fill='white' stroke='#ff3d90' stroke-width='1'/>" +
+    "<path d='M16 29C16 29 0 18.2 0 8.6 0 3.5 4.1 0 8.7 0 12.2 0 15 2.1 16 5.1 17 2.1 19.8 0 23.3 0 27.9 0 32 3.5 32 8.6 32 18.2 16 29 16 29Z' fill='white' stroke='#c22a42' stroke-width='1'/>" +
     "<ellipse cx='10.5' cy='7.5' rx='3' ry='1.8' fill='white' fill-opacity='0.85' transform='rotate(-30 10.5 7.5)'/>" +
     "</svg>";
-  const HEAL_GRADIENT = 'linear-gradient(145deg, #ff9ed2, #ff3d90 65%, #e0257a)';
+  const HEAL_GRADIENT = 'linear-gradient(145deg, #ff8a8a, #e63950 65%, #c22a42)';
   const HEAL_BG = 'url("data:image/svg+xml,' + encodeURIComponent(HEAL_HEART_SVG) + '") center/58% no-repeat, ' + HEAL_GRADIENT;
   const HEAL_CHANCE = 1/3; // ミノ1個ごとに独立でこの確率(上限なし)
 
@@ -165,6 +166,7 @@ window.CCB = window.CCB || {};
   function calcDamage(groups){
     let total = 0;
     const names = [];
+    let hasTechnique = false;
     groups.forEach(g => {
       const size = g.cells.length;
       const base = size===4 ? 10 : size===5 ? 16 : size===6 ? 24 : 34;
@@ -173,6 +175,7 @@ window.CCB = window.CCB || {};
         const dmg = Math.round(base * shape.mult);
         total += dmg;
         names.push(shape.name + ' ' + dmg);
+        hasTechnique = true;
       } else {
         total += base;
       }
@@ -182,7 +185,7 @@ window.CCB = window.CCB || {};
       total += bonus;
       names.push('同時消し +' + bonus);
     }
-    return { total, names };
+    return { total, names, hasTechnique };
   }
 
   CCB.N = N;

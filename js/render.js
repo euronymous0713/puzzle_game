@@ -53,6 +53,33 @@ window.CCB = window.CCB || {};
     el.classList.add(className);
   }
 
+  // 技が発動した瞬間に盤面全体を一瞬明るくフラッシュさせる
+  function flashBoard(el){
+    if(el) playAnim(el, 'board-flash');
+  }
+
+  // ブロックが消える瞬間に小さい丸が飛び散るパーティクル演出
+  function spawnParticles(el, color){
+    const rect = el.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const particleColor = color === CCB.HEAL ? '#ff6b7a' : color;
+    const n = 6;
+    for(let i=0;i<n;i++){
+      const angle = (Math.PI * 2 * i / n) + (Math.random() * 0.6 - 0.3);
+      const dist = 16 + Math.random() * 14;
+      const p = document.createElement('div');
+      p.className = 'clear-particle';
+      p.style.left = cx + 'px';
+      p.style.top = cy + 'px';
+      p.style.background = particleColor;
+      p.style.setProperty('--dx', (Math.cos(angle) * dist) + 'px');
+      p.style.setProperty('--dy', (Math.sin(angle) * dist) + 'px');
+      document.body.appendChild(p);
+      p.addEventListener('animationend', () => p.remove(), { once:true });
+    }
+  }
+
   function renderBoard(cellEls, board, prevBoard){
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
@@ -81,6 +108,7 @@ window.CCB = window.CCB || {};
           el.style.background = CCB.cellBg(prev);
           el.classList.remove('cell-pop');
           playAnim(el, wasHeal ? 'heal-clear' : 'cell-clear');
+          spawnParticles(el, prev);
           el.addEventListener('animationend', function onEnd(){
             el.style.background = '';
             el.classList.remove('cell-clear', 'heal-clear');
@@ -95,9 +123,9 @@ window.CCB = window.CCB || {};
   }
 
   function hpColor(pct){
-    if(pct > 0.5) return '#66bb6a';
-    if(pct > 0.2) return '#ffd54f';
-    return '#ff5252';
+    if(pct > 0.5) return '#4ECDC4';
+    if(pct > 0.2) return '#FFE66D';
+    return '#FF6B9D';
   }
 
   function renderHp(){
@@ -115,6 +143,8 @@ window.CCB = window.CCB || {};
     oppHpFill.style.background = hpColor(op);
     oppHpNum.textContent = oppHp;
 
+    if(prevSelfHp !== null && selfHp !== prevSelfHp) playAnim(selfHpNum, 'num-bounce');
+    if(prevOppHp !== null && oppHp !== prevOppHp) playAnim(oppHpNum, 'num-bounce');
     if(prevSelfHp !== null && selfHp < prevSelfHp) playAnim(selfHpWrap, 'hp-hit');
     if(prevOppHp !== null && oppHp < prevOppHp) playAnim(oppHpWrap, 'hp-hit');
     if(prevSelfHp !== null && selfHp > prevSelfHp) playAnim(selfHpWrap, 'hp-heal');
@@ -221,6 +251,7 @@ window.CCB = window.CCB || {};
     const res = CCB.playerAction('self', idx, r, c);
     if(res.ok){
       if(res.damage > 0 || res.heal > 0) showSkillPopup(res.names, res.damage, res.heal, false);
+      if(res.hasTechnique) flashBoard(selfBoardEl);
       if(CCB.mode === 'online'){
         CCB.net.send({
           type: 'move',
@@ -228,6 +259,7 @@ window.CCB = window.CCB || {};
           damage: res.damage,
           heal: res.heal,
           names: res.names,
+          hasTechnique: res.hasTechnique,
           over: CCB.state.over,
           winner: CCB.state.winner,
         });
@@ -241,12 +273,14 @@ window.CCB = window.CCB || {};
     const res = CCB.aiTick();
     if(res && res.ok && (res.damage > 0 || res.heal > 0)){
       showSkillPopup(res.names, res.damage, res.heal, true);
+      if(res.hasTechnique) flashBoard(oppBoardEl);
     }
     renderAll();
     return res;
   }
 
   CCB.selfBoardEl = selfBoardEl;
+  CCB.oppBoardEl = oppBoardEl;
   CCB.trayEl = trayEl;
   CCB.restartBtn = restartBtn;
   CCB.selfCellEls = selfCellEls;
@@ -256,6 +290,7 @@ window.CCB = window.CCB || {};
   CCB.renderTray = renderTray;
   CCB.renderAll = renderAll;
   CCB.showSkillPopup = showSkillPopup;
+  CCB.flashBoard = flashBoard;
   CCB.commitSelfPlacement = commitSelfPlacement;
   CCB.commitAiTick = commitAiTick;
 })(window.CCB);

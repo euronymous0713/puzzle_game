@@ -26,7 +26,7 @@ window.CCB = window.CCB || {};
     doPlace(player.board, piece, or, oc);
     player.tray[trayIdx] = genPiece();
     const groups = findGroups(player.board);
-    const result = { ok:true, damage:0, heal:0, names:[] };
+    const result = { ok:true, damage:0, heal:0, names:[], hasTechnique:false };
     if(groups.length){
       const clearedSet = new Set();
       groups.forEach(g => g.cells.forEach(([r,c]) => clearedSet.add(r+','+c)));
@@ -53,6 +53,7 @@ window.CCB = window.CCB || {};
       opp.hp = Math.max(0, opp.hp - calc.total);
       result.damage = calc.total;
       result.names = calc.names;
+      result.hasTechnique = calc.hasTechnique;
 
       if(healCells.length){
         const healTotal = clearedSet.size * healCells.length;
@@ -137,6 +138,7 @@ window.CCB = window.CCB || {};
       if(msg.damage > 0){
         state.self.hp = Math.max(0, state.self.hp - msg.damage);
         CCB.showSkillPopup(msg.names, msg.damage, msg.heal, true);
+        if(msg.hasTechnique) CCB.flashBoard(CCB.oppBoardEl);
       }
       if(msg.heal > 0){
         state.opp.hp = Math.min(state.opp.maxHp, state.opp.hp + msg.heal);
