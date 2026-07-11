@@ -31,6 +31,8 @@ window.CCB = window.CCB || {};
   let prevOppHp = null;
   let prevSelfBridgeKeys = new Set();
   let prevOppBridgeKeys = new Set();
+  let prevSelfRadii = {};
+  let prevOppRadii = {};
 
   function buildBoardDom(el, targetArr){
     el.innerHTML = '';
@@ -127,22 +129,32 @@ window.CCB = window.CCB || {};
   const BOARD_CELL_RADIUS = 13; // .cellのborder-radiusと合わせる(ぷよぷよ風の丸み)
 
   // 盤面に置いたブロックは、隣が同じ色(同じマスの値)なら繋がって見えるよう
-  // その側の角を丸めない
-  function applyConnectedRadii(cellEls, board){
+  // その側の角を丸めない。既存セルの丸みが「新しく」変化した場合だけ軽くバウンドさせる
+  // (新規配置セル自体はcell-popと二重再生しないよう除外する)
+  function applyConnectedRadii(cellEls, board, prevRadii){
+    const nextRadii = {};
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
         const v = board[r][c];
         const el = cellEls[r][c];
-        if(!v){ el.style.borderRadius = ''; continue; }
+        const key = r + ',' + c;
+        if(!v){ el.style.borderRadius = ''; nextRadii[key] = null; continue; }
         const same = (rr,cc) => rr>=0 && rr<N && cc>=0 && cc<N && board[rr][cc] === v;
         const nUp = same(r-1,c), nDown = same(r+1,c), nLeft = same(r,c-1), nRight = same(r,c+1);
         const tl = (nUp || nLeft) ? 0 : BOARD_CELL_RADIUS;
         const tr = (nUp || nRight) ? 0 : BOARD_CELL_RADIUS;
         const br = (nDown || nRight) ? 0 : BOARD_CELL_RADIUS;
         const bl = (nDown || nLeft) ? 0 : BOARD_CELL_RADIUS;
-        el.style.borderRadius = `${tl}px ${tr}px ${br}px ${bl}px`;
+        const rad = `${tl}px ${tr}px ${br}px ${bl}px`;
+        el.style.borderRadius = rad;
+        const prev = prevRadii[key];
+        if(prev !== undefined && prev !== null && prev !== rad){
+          playAnim(el, 'connect-squish');
+        }
+        nextRadii[key] = rad;
       }
     }
+    return nextRadii;
   }
 
   // 隣接する同色マスの間のマス目の隙間を同色で埋めて、1つに繋がって見えるようにする。
@@ -265,8 +277,8 @@ window.CCB = window.CCB || {};
     const state = CCB.state;
     renderBoard(selfCellEls, state.self.board, prevSelfBoard);
     renderBoard(oppCellEls, state.opp.board, prevOppBoard);
-    applyConnectedRadii(selfCellEls, state.self.board);
-    applyConnectedRadii(oppCellEls, state.opp.board);
+    prevSelfRadii = applyConnectedRadii(selfCellEls, state.self.board, prevSelfRadii);
+    prevOppRadii = applyConnectedRadii(oppCellEls, state.opp.board, prevOppRadii);
     prevSelfBridgeKeys = buildBridges(selfBoardEl, selfCellEls, state.self.board, prevSelfBridgeKeys);
     prevOppBridgeKeys = buildBridges(oppBoardEl, oppCellEls, state.opp.board, prevOppBridgeKeys);
     prevSelfBoard = CCB.cloneBoard(state.self.board);

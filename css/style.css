@@ -168,6 +168,12 @@ body::before{
   60%{ opacity:1; transform:scale(1.15); }
   100%{ opacity:1; transform:scale(1); }
 }
+.cell.connect-squish{ animation:connectSquish .3s cubic-bezier(.34,1.6,.64,1); }
+@keyframes connectSquish{
+  0%{ transform:scale(1); }
+  40%{ transform:scale(1.12); }
+  100%{ transform:scale(1); }
+}
 .board.board-flash{ animation:boardFlash .45s ease-out; }
 @keyframes boardFlash{
   0%{ filter:brightness(1); }
