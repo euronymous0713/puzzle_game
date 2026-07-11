@@ -29,8 +29,30 @@ window.CCB = window.CCB || {};
   let prevOppBoard = null;
   let prevSelfHp = null;
   let prevOppHp = null;
-  let prevSelfBridgeKeys = new Set();
-  let prevOppBridgeKeys = new Set();
+  let prevSelfBlobSigs = new Set();
+  let prevOppBlobSigs = new Set();
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  // 盤面の上に重ねる、繋がったブロックのまとまり(SVGの塊)を描くレイヤーを作る
+  function createBlobLayer(boardEl){
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'board-blobs');
+    const defs = document.createElementNS(SVG_NS, 'defs');
+    const grad = document.createElementNS(SVG_NS, 'radialGradient');
+    grad.setAttribute('id', 'gemGrad-' + boardEl.id);
+    grad.setAttribute('gradientUnits', 'objectBoundingBox');
+    grad.setAttribute('cx', '28%'); grad.setAttribute('cy', '22%'); grad.setAttribute('r', '75%');
+    const stop1 = document.createElementNS(SVG_NS, 'stop');
+    stop1.setAttribute('offset', '0%'); stop1.setAttribute('stop-color', '#fff'); stop1.setAttribute('stop-opacity', '0.75');
+    const stop2 = document.createElementNS(SVG_NS, 'stop');
+    stop2.setAttribute('offset', '42%'); stop2.setAttribute('stop-color', '#fff'); stop2.setAttribute('stop-opacity', '0');
+    grad.appendChild(stop1); grad.appendChild(stop2);
+    defs.appendChild(grad);
+    svg.appendChild(defs);
+    boardEl.appendChild(svg);
+    return svg;
+  }
 
   function buildBoardDom(el, targetArr){
     el.innerHTML = '';
@@ -47,6 +69,8 @@ window.CCB = window.CCB || {};
   }
   buildBoardDom(selfBoardEl, selfCellEls);
   buildBoardDom(oppBoardEl, oppCellEls);
+  const selfBlobSvg = createBlobLayer(selfBoardEl);
+  const oppBlobSvg = createBlobLayer(oppBoardEl);
 
   // 再生し終わったらクラスを外しておく一過性の演出用(他の演出クラスとの衝突を防ぐ)
   function playAnimOnce(el, className){
@@ -92,49 +116,7 @@ window.CCB = window.CCB || {};
   }
 
   const BOARD_CELL_RADIUS = 13; // .cellのborder-radiusと合わせる
-
-  function cellConnectivity(board, r, c){
-    const v = board[r][c];
-    if(!v) return null;
-    const same = (rr,cc) => rr>=0 && rr<N && cc>=0 && cc<N && board[rr][cc] === v;
-    return { up: same(r-1,c), down: same(r+1,c), left: same(r,c-1), right: same(r,c+1) };
-  }
-
-  // セルの見た目(角丸+背景)を現在の盤面から再計算して反映する。ツヤ感は繋がって
-  // いても常に維持し、継ぎ目側の角だけ落として、面取りの影だけ消して段差の線を消す。
-  function applyCellAppearance(el, board, r, c){
-    const v = board[r][c];
-    if(!v){ el.style.borderRadius = ''; el.classList.remove('connected'); return; }
-    el.style.background = CCB.cellBg(v);
-    const conn = cellConnectivity(board, r, c);
-    const connected = conn.up || conn.down || conn.left || conn.right;
-    el.classList.toggle('connected', connected);
-    if(!connected){
-      el.style.borderRadius = BOARD_CELL_RADIUS + 'px';
-    } else {
-      const tl = (conn.up || conn.left) ? 0 : BOARD_CELL_RADIUS;
-      const tr = (conn.up || conn.right) ? 0 : BOARD_CELL_RADIUS;
-      const br = (conn.down || conn.right) ? 0 : BOARD_CELL_RADIUS;
-      const bl = (conn.down || conn.left) ? 0 : BOARD_CELL_RADIUS;
-      el.style.borderRadius = `${tl}px ${tr}px ${br}px ${bl}px`;
-    }
-  }
-
-  // 今回の描画では値が変わっていない既存セルのうち、隣に新しく同色ブロックが来た/
-  // 消えたことで見た目(角丸)が変わったものだけ、軽く弾ませる。
-  function applyConnectivityPass(cellEls, board, prevBoard){
-    for(let r=0;r<N;r++){
-      for(let c=0;c<N;c++){
-        const v = board[r][c];
-        const prevV = prevBoard ? prevBoard[r][c] : undefined;
-        if(v !== prevV || !v) continue;
-        const el = cellEls[r][c];
-        const before = el.style.borderRadius;
-        applyCellAppearance(el, board, r, c);
-        if(el.style.borderRadius !== before) playAnimOnce(el, 'connect-squish');
-      }
-    }
-  }
+  const BLOB_RADIUS = 13;
 
   function renderBoard(cellEls, board, prevBoard){
     for(let r=0;r<N;r++){
@@ -148,10 +130,9 @@ window.CCB = window.CCB || {};
           // 付いているとCSSの優先順位でcell-pop側が再生されない。一旦外してポップ
           // 演出を終わらせてから、必要ならheal-cellを付け直す。
           el.classList.remove('cell-clear', 'heal-cell');
-          applyCellAppearance(el, board, r, c);
+          el.style.background = CCB.cellBg(v);
+          el.style.borderRadius = BOARD_CELL_RADIUS + 'px';
           playAnim(el, 'cell-pop');
-          // cell-popは再生し終わったら外しておく。残したままだと、後で繋がった時の
-          // connect-squishなど別のアニメーションと同時に付いてしまい衝突する。
           el.addEventListener('animationend', function onPopCleanup(){
             el.classList.remove('cell-pop');
             el.removeEventListener('animationend', onPopCleanup);
@@ -174,70 +155,68 @@ window.CCB = window.CCB || {};
           el.addEventListener('animationend', function onEnd(){
             el.style.background = '';
             el.style.borderRadius = ''; // 空になったら四角いソケットに戻す
-            el.classList.remove('cell-clear', 'heal-clear', 'connected');
+            el.classList.remove('cell-clear', 'heal-clear');
             el.removeEventListener('animationend', onEnd);
           }, { once:true });
         } else {
-          applyCellAppearance(el, board, r, c);
+          el.style.background = CCB.cellBg(v);
+          el.style.borderRadius = v ? BOARD_CELL_RADIUS + 'px' : '';
           el.classList.toggle('heal-cell', v === CCB.HEAL);
         }
       }
     }
   }
 
-  // 隣接する同色マスの間の隙間を同色(ベタ塗り)で埋めて、1つに繋がって見えるように
-  // する。前回から既にあった繋ぎ目はアニメーションを再生させず、新しく繋がった時だけ
-  // ふわっと出現させる。
+  function regionSignature(cells){
+    return cells.map(([r,c]) => r + ',' + c).sort().join(';');
+  }
+
+  // 同色に繋がったセルの集合(2マス以上)を、輪郭を計算した1つのSVG図形として
+  // 個々のセルの上に重ねて描く。孤立した1マスはSVGを使わず、セル自身の丸み・ツヤ・
+  // 影だけで表示する(繋がっているものだけ「1つの塊」として上書きする形)。
   //
-  // セルごとにgetBoundingClientRectを呼びながらDOMを書き換えると、読み取りと書き込みが
-  // 交互になってレイアウト再計算が何度も走り、アニメーションがカクつく(コマ送りに見える)
-  // 原因になる。盤面は8x8の均等なグリッドなので、実測は盤面全体とセル1個分だけにし、
-  // 残り63マスの位置は算術計算で求めることで再計算を1回だけに抑える。
-  function buildBridges(boardEl, cellEls, board, prevKeys){
-    boardEl.querySelectorAll('.cell-bridge').forEach(el => el.remove());
+  // 実測はセル1個分・盤面のスタイル情報だけにとどめ、残りは算術計算する
+  // (セルごとにgetBoundingClientRectを呼ぶとレイアウト再計算が何度も走り、
+  // アニメーションがカクつく=コマ送りに見える原因になるため)。
+  function renderBlobs(svg, cellEls, board, prevSigs){
     const sample = cellEls[0][0].getBoundingClientRect();
-    const cs = getComputedStyle(boardEl);
+    const boardRect = svg.parentElement.getBoundingClientRect();
+    const cs = getComputedStyle(svg.parentElement);
     const gap = parseFloat(cs.columnGap) || 0;
-    // 絶対配置の子要素の原点はborder-boxではなくpadding-box(paddingの外側)になるため、
-    // パディング分を足さないとグリッド内容(セル)の実際の位置とズレる。
     const padLeft = parseFloat(cs.paddingLeft) || 0;
     const padTop = parseFloat(cs.paddingTop) || 0;
     const step = sample.width + gap;
-    const cellLeft = (c) => padLeft + c * step;
-    const cellTop = (r) => padTop + r * step;
-    const newKeys = new Set();
 
-    for(let r=0;r<N;r++){
-      for(let c=0;c<N;c++){
-        const v = board[r][c];
-        if(!v) continue;
-        if(c+1<N && board[r][c+1]===v){
-          const key = 'h'+r+'-'+c;
-          newKeys.add(key);
-          const bridge = document.createElement('div');
-          bridge.className = 'cell-bridge' + (prevKeys.has(key) ? '' : ' bridge-in');
-          bridge.style.background = CCB.cellBg(v, true);
-          bridge.style.left = (cellLeft(c) + sample.width) + 'px';
-          bridge.style.top = cellTop(r) + 'px';
-          bridge.style.width = gap + 'px';
-          bridge.style.height = sample.height + 'px';
-          boardEl.appendChild(bridge);
-        }
-        if(r+1<N && board[r+1][c]===v){
-          const key = 'v'+r+'-'+c;
-          newKeys.add(key);
-          const bridge = document.createElement('div');
-          bridge.className = 'cell-bridge' + (prevKeys.has(key) ? '' : ' bridge-in');
-          bridge.style.background = CCB.cellBg(v, true);
-          bridge.style.left = cellLeft(c) + 'px';
-          bridge.style.top = (cellTop(r) + sample.height) + 'px';
-          bridge.style.width = sample.width + 'px';
-          bridge.style.height = gap + 'px';
-          boardEl.appendChild(bridge);
-        }
-      }
+    svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
+    Array.from(svg.querySelectorAll('path')).forEach(p => p.remove());
+
+    const regions = CCB.getColorRegions(board, N).filter(g => g.cells.length >= 2);
+    const newSigs = new Set();
+    for(const region of regions){
+      const sig = regionSignature(region.cells);
+      newSigs.add(sig);
+      // グリッド座標(1マス=step)をピクセルpathに変換。padLeft/padTop分だけ
+      // 平行移動する(セル本体のずれは常にセル自身に覆われるため見た目に影響しない)。
+      const shiftedCells = region.cells; // regionToPathは単位=stepでそのままpx換算するので、
+      const rawPath = CCB.regionToPath(shiftedCells, step, BLOB_RADIUS);
+      const isNew = !prevSigs.has(sig);
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('transform', `translate(${padLeft} ${padTop})`);
+      g.setAttribute('class', 'blob-group' + (isNew ? ' blob-in' : ''));
+
+      const base = document.createElementNS(SVG_NS, 'path');
+      base.setAttribute('d', rawPath);
+      base.setAttribute('fill', region.color);
+      g.appendChild(base);
+
+      const gloss = document.createElementNS(SVG_NS, 'path');
+      gloss.setAttribute('d', rawPath);
+      gloss.setAttribute('fill', `url(#gemGrad-${svg.parentElement.id})`);
+      g.appendChild(gloss);
+
+      svg.appendChild(g);
     }
-    return newKeys;
+    return newSigs;
   }
 
   function hpColor(pct){
@@ -312,10 +291,8 @@ window.CCB = window.CCB || {};
     const state = CCB.state;
     renderBoard(selfCellEls, state.self.board, prevSelfBoard);
     renderBoard(oppCellEls, state.opp.board, prevOppBoard);
-    applyConnectivityPass(selfCellEls, state.self.board, prevSelfBoard);
-    applyConnectivityPass(oppCellEls, state.opp.board, prevOppBoard);
-    prevSelfBridgeKeys = buildBridges(selfBoardEl, selfCellEls, state.self.board, prevSelfBridgeKeys);
-    prevOppBridgeKeys = buildBridges(oppBoardEl, oppCellEls, state.opp.board, prevOppBridgeKeys);
+    prevSelfBlobSigs = renderBlobs(selfBlobSvg, selfCellEls, state.self.board, prevSelfBlobSigs);
+    prevOppBlobSigs = renderBlobs(oppBlobSvg, oppCellEls, state.opp.board, prevOppBlobSigs);
     prevSelfBoard = CCB.cloneBoard(state.self.board);
     prevOppBoard = CCB.cloneBoard(state.opp.board);
     renderHp();
