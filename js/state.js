@@ -112,6 +112,12 @@ window.CCB = window.CCB || {};
   // 「もう一度」を押した側が呼ぶ。双方が希望した時点で次の試合を始める
   function requestRematch(){
     if(CCB.mode !== 'online' || !CCB.state.over || CCB.state.disconnectMsg) return;
+    // 「もう一度」を押した時点で相手が既にいなければ、待ち続けさせずにすぐ知らせる
+    if(!CCB.net.conn || !CCB.net.conn.open){
+      CCB.state.disconnectMsg = '相手が切断しました';
+      CCB.renderAll();
+      return;
+    }
     CCB.rematchSelfWants = true;
     CCB.net.send({ type:'rematch' });
     if(CCB.rematchOppWants){
