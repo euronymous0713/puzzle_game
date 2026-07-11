@@ -29,20 +29,6 @@ window.CCB = window.CCB || {};
   let prevOppBoard = null;
   let prevSelfHp = null;
   let prevOppHp = null;
-  let prevSelfFrameKeys = new Set();
-  let prevOppFrameKeys = new Set();
-
-  const SVG_NS = 'http://www.w3.org/2000/svg';
-
-  // 盤面の上に重ねる、同色で隣接するブロックのまとまりの外周に薄い枠線を描く
-  // レイヤーを作る。ブロック自体の形は変えず(常に個別の丸いブロックのまま)、
-  // 「繋がっている」ことだけをグループの輪郭線で示す。
-  function createFrameLayer(boardEl){
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('class', 'board-frames');
-    boardEl.appendChild(svg);
-    return svg;
-  }
 
   function buildBoardDom(el, targetArr){
     el.innerHTML = '';
@@ -59,8 +45,6 @@ window.CCB = window.CCB || {};
   }
   buildBoardDom(selfBoardEl, selfCellEls);
   buildBoardDom(oppBoardEl, oppCellEls);
-  const selfFrameSvg = createFrameLayer(selfBoardEl);
-  const oppFrameSvg = createFrameLayer(oppBoardEl);
 
   // 再生し終わったらクラスを外しておく一過性の演出用(他の演出クラスとの衝突を防ぐ)
   function playAnimOnce(el, className){
@@ -172,57 +156,6 @@ window.CCB = window.CCB || {};
     }
   }
 
-  // 同色で4方向に隣接するブロックのまとまりの外周に、薄い枠線を描く。
-  // 各マスの4辺のうち、隣が同じ色でない辺だけを線として描くことで、
-  // グループ全体の輪郭だけが浮き上がるようにする。ブロック自体の形・色・
-  // 光沢は一切変えない。前回から既にあった辺はアニメーションを再生させず、
-  // 新しく現れた辺だけふわっと出現させる。
-  //
-  // 実測はセル1個分・盤面のスタイル情報だけにとどめ、残りは算術計算する
-  // (セルごとにgetBoundingClientRectを呼ぶとレイアウト再計算が何度も走り、
-  // アニメーションがカクつく原因になるため)。
-  function renderFrames(svg, cellEls, board, prevKeys){
-    const boardEl = svg.parentElement;
-    const sample = cellEls[0][0].getBoundingClientRect();
-    const boardRect = boardEl.getBoundingClientRect();
-    const cs = getComputedStyle(boardEl);
-    const gap = parseFloat(cs.columnGap) || 0;
-    const padLeft = parseFloat(cs.paddingLeft) || 0;
-    const padTop = parseFloat(cs.paddingTop) || 0;
-    const step = sample.width + gap;
-    const cellSize = sample.width;
-    const rectOf = (r,c) => ({
-      x0: padLeft + c*step, y0: padTop + r*step,
-      x1: padLeft + c*step + cellSize, y1: padTop + r*step + cellSize,
-    });
-
-    svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
-    Array.from(svg.querySelectorAll('line')).forEach(l => l.remove());
-
-    const newKeys = new Set();
-    const sameColor = (r,c,v) => r>=0 && r<N && c>=0 && c<N && board[r][c]===v;
-    for(let r=0;r<N;r++){
-      for(let c=0;c<N;c++){
-        const v = board[r][c];
-        if(!v || v === CCB.HEAL) continue;
-        const box = rectOf(r,c);
-        if(!sameColor(r-1,c,v)) addEdge('t'+r+'-'+c, {x:box.x0,y:box.y0}, {x:box.x1,y:box.y0});
-        if(!sameColor(r+1,c,v)) addEdge('b'+r+'-'+c, {x:box.x0,y:box.y1}, {x:box.x1,y:box.y1});
-        if(!sameColor(r,c-1,v)) addEdge('l'+r+'-'+c, {x:box.x0,y:box.y0}, {x:box.x0,y:box.y1});
-        if(!sameColor(r,c+1,v)) addEdge('r'+r+'-'+c, {x:box.x1,y:box.y0}, {x:box.x1,y:box.y1});
-      }
-    }
-    function addEdge(key, a, b){
-      newKeys.add(key);
-      const line = document.createElementNS(SVG_NS, 'line');
-      line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
-      line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
-      line.setAttribute('class', 'frame-line' + (prevKeys.has(key) ? '' : ' frame-in'));
-      svg.appendChild(line);
-    }
-    return newKeys;
-  }
-
   function hpColor(pct){
     if(pct > 0.5) return '#4ECDC4';
     if(pct > 0.2) return '#FFE66D';
@@ -295,8 +228,6 @@ window.CCB = window.CCB || {};
     const state = CCB.state;
     renderBoard(selfCellEls, state.self.board, prevSelfBoard, selfClearedCells);
     renderBoard(oppCellEls, state.opp.board, prevOppBoard, oppClearedCells);
-    prevSelfFrameKeys = renderFrames(selfFrameSvg, selfCellEls, state.self.board, prevSelfFrameKeys);
-    prevOppFrameKeys = renderFrames(oppFrameSvg, oppCellEls, state.opp.board, prevOppFrameKeys);
     prevSelfBoard = CCB.cloneBoard(state.self.board);
     prevOppBoard = CCB.cloneBoard(state.opp.board);
     renderHp();
