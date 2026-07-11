@@ -16,9 +16,15 @@ window.CCB = window.CCB || {};
   const HEAL_GRADIENT = 'linear-gradient(145deg, #ff9ed2, #ff3d90 65%, #e0257a)';
   const HEAL_BG = 'url("data:image/svg+xml,' + encodeURIComponent(HEAL_HEART_SVG) + '") center/58% no-repeat, ' + HEAL_GRADIENT;
   const HEAL_CHANCE = 1/3; // ミノ1個ごとに独立でこの確率(上限なし)
+
+  // 通常色のブロックにツヤ感を出すための重ねがけ(単色べた塗りだと安っぽく見えるため)。
+  const GEM_SHEEN =
+    'radial-gradient(circle at 28% 22%, rgba(255,255,255,0.75), rgba(255,255,255,0) 42%), ' +
+    'linear-gradient(155deg, rgba(255,255,255,0.28), rgba(0,0,0,0.32) 88%), ';
   function cellBg(v){
     if(!v) return '';
-    return v === HEAL ? HEAL_BG : v;
+    if(v === HEAL) return HEAL_BG;
+    return GEM_SHEEN + v;
   }
 
   function shuffle(arr){

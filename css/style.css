@@ -126,7 +126,11 @@ body::before{
    はみ出さないよう、自分の盤面は横幅92%と「残りの縦スペース」の
    小さい方に収める */
 #selfBoard{ width:min(92%, calc(100vh - 300px)); width:min(92%, calc(100dvh - 300px)); }
-.cell{ background:#11152a; border-radius:4px; transition:background .15s; transform-origin:center; }
+.cell{
+  background:#11152a; border-radius:6px; transform-origin:center;
+  box-shadow:inset 0 1px 2px rgba(0,0,0,0.45), inset 0 -1px 1px rgba(255,255,255,0.06);
+  transition:background .15s;
+}
 .cell.preview-valid{ box-shadow:inset 0 0 0 2px #66bb6a; opacity:0.85; }
 .cell.preview-invalid{ box-shadow:inset 0 0 0 2px #ff5252; opacity:0.45; filter:grayscale(0.5); }
 .cell.preview-clear{
@@ -197,7 +201,10 @@ body::before{
 .piece-slot:hover{ border-color:var(--accent); }
 .piece-slot:active{ transform:scale(0.94); }
 .piece-grid{ display:grid; gap:2px; }
-.piece-cell{ width:15px; height:15px; border-radius:3px; }
+.piece-cell{
+  width:15px; height:15px; border-radius:4px;
+  box-shadow:inset 0 1px 1px rgba(0,0,0,0.4), inset 0 -1px 1px rgba(255,255,255,0.08);
+}
 
 #oppPanel{
   width:92%; display:flex; align-items:center; gap:8px;
