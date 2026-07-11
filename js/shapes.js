@@ -17,6 +17,7 @@ window.CCB = window.CCB || {};
   const HEAL_GRADIENT = 'linear-gradient(145deg, #ff8a8a, #e63950 65%, #c22a42)';
   const HEAL_BG = 'url("data:image/svg+xml,' + encodeURIComponent(HEAL_HEART_SVG) + '") center/58% no-repeat, ' + HEAL_GRADIENT;
   const HEAL_CHANCE = 0.15; // ミノ1個ごとに独立でこの確率(上限なし)
+  const HEAL_MULT = 2; // 回復量(消えたマス数×隣接ハート数)に掛ける倍率
 
   // 通常色のブロックにツヤ感を出すための重ねがけ(単色べた塗りだと安っぽく見えるため)。
   const GEM_SHEEN =
@@ -210,6 +211,7 @@ window.CCB = window.CCB || {};
   CCB.N = N;
   CCB.COLORS = COLORS;
   CCB.HEAL = HEAL;
+  CCB.HEAL_MULT = HEAL_MULT;
   CCB.cellBg = cellBg;
   CCB.genPiece = genPiece;
   CCB.pieceBBox = pieceBBox;

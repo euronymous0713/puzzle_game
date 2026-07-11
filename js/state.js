@@ -68,7 +68,7 @@ window.CCB = window.CCB || {};
       result.hasTechnique = calc.hasTechnique;
 
       if(healCells.length){
-        const healTotal = clearedSet.size * healCells.length;
+        const healTotal = Math.round(clearedSet.size * healCells.length * CCB.HEAL_MULT);
         healCells.forEach(([r,c]) => {
           result.clearedCells.push({ r, c, color: CCB.HEAL });
           player.board[r][c] = null;
