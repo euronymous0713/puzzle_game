@@ -29,6 +29,8 @@ window.CCB = window.CCB || {};
   let prevOppBoard = null;
   let prevSelfHp = null;
   let prevOppHp = null;
+  let prevSelfBridgeKeys = new Set();
+  let prevOppBridgeKeys = new Set();
 
   function buildBoardDom(el, targetArr){
     el.innerHTML = '';
@@ -122,7 +124,7 @@ window.CCB = window.CCB || {};
     }
   }
 
-  const BOARD_CELL_RADIUS = 10; // .cellのborder-radiusと合わせる
+  const BOARD_CELL_RADIUS = 13; // .cellのborder-radiusと合わせる(ぷよぷよ風の丸み)
 
   // 盤面に置いたブロックは、隣が同じ色(同じマスの値)なら繋がって見えるよう
   // その側の角を丸めない
@@ -143,23 +145,28 @@ window.CCB = window.CCB || {};
     }
   }
 
-  // 隣接する同色マスの間のマス目の隙間を同色で埋めて、1つに繋がって見えるようにする
-  function buildBridges(boardEl, cellEls, board){
+  // 隣接する同色マスの間のマス目の隙間を同色で埋めて、1つに繋がって見えるようにする。
+  // 前回から既にあった継ぎ目はアニメーションを再生させず、新しく繋がった継ぎ目だけ
+  // ぷよぷよのようにポコッと弾んで出現させる。
+  function buildBridges(boardEl, cellEls, board, prevKeys){
     boardEl.querySelectorAll('.cell-bridge').forEach(el => el.remove());
     const boardRect = boardEl.getBoundingClientRect();
     // 絶対配置の子要素の基準はborder-boxではなくpadding-box(borderの内側)になるため補正する
     const cs = getComputedStyle(boardEl);
     const originX = boardRect.left + (parseFloat(cs.borderLeftWidth) || 0);
     const originY = boardRect.top + (parseFloat(cs.borderTopWidth) || 0);
+    const newKeys = new Set();
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
         const v = board[r][c];
         if(!v) continue;
         if(c+1<N && board[r][c+1]===v){
+          const key = 'h'+r+'-'+c;
+          newKeys.add(key);
           const a = cellEls[r][c].getBoundingClientRect();
           const b = cellEls[r][c+1].getBoundingClientRect();
           const bridge = document.createElement('div');
-          bridge.className = 'cell-bridge';
+          bridge.className = 'cell-bridge' + (prevKeys.has(key) ? '' : ' bridge-in');
           bridge.style.background = CCB.cellBg(v);
           bridge.style.left = (a.right - originX) + 'px';
           bridge.style.top = (a.top - originY) + 'px';
@@ -168,10 +175,12 @@ window.CCB = window.CCB || {};
           boardEl.appendChild(bridge);
         }
         if(r+1<N && board[r+1][c]===v){
+          const key = 'v'+r+'-'+c;
+          newKeys.add(key);
           const a = cellEls[r][c].getBoundingClientRect();
           const b = cellEls[r+1][c].getBoundingClientRect();
           const bridge = document.createElement('div');
-          bridge.className = 'cell-bridge';
+          bridge.className = 'cell-bridge' + (prevKeys.has(key) ? '' : ' bridge-in');
           bridge.style.background = CCB.cellBg(v);
           bridge.style.left = (a.left - originX) + 'px';
           bridge.style.top = (a.bottom - originY) + 'px';
@@ -181,6 +190,7 @@ window.CCB = window.CCB || {};
         }
       }
     }
+    return newKeys;
   }
 
   function hpColor(pct){
@@ -257,8 +267,8 @@ window.CCB = window.CCB || {};
     renderBoard(oppCellEls, state.opp.board, prevOppBoard);
     applyConnectedRadii(selfCellEls, state.self.board);
     applyConnectedRadii(oppCellEls, state.opp.board);
-    buildBridges(selfBoardEl, selfCellEls, state.self.board);
-    buildBridges(oppBoardEl, oppCellEls, state.opp.board);
+    prevSelfBridgeKeys = buildBridges(selfBoardEl, selfCellEls, state.self.board, prevSelfBridgeKeys);
+    prevOppBridgeKeys = buildBridges(oppBoardEl, oppCellEls, state.opp.board, prevOppBridgeKeys);
     prevSelfBoard = CCB.cloneBoard(state.self.board);
     prevOppBoard = CCB.cloneBoard(state.opp.board);
     renderHp();
