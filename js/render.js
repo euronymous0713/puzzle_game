@@ -34,11 +34,28 @@ window.CCB = window.CCB || {};
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
-  // 盤面の上に重ねる、繋がったブロックのまとまり(SVGの塊)を描くレイヤーを作る
+  // 盤面の上に重ねる、繋がったブロックのまとまり(SVGの塊)を描くレイヤーを作る。
+  // 形の合成にはmetaball(メタボール)技法を使う: 各マスを円としてぼかし+コントラストで
+  // 融合させ(goo フィルター)、輪郭がヒョウタン状にくびれて繋がるようにする。
+  // 色・光沢はこのフィルターを通さない別レイヤーで描き、goo側は「マスク」としてだけ使う
+  // ことで、ぼかしフィルターがツヤのグラデーションを潰してしまうのを防ぐ。
   function createBlobLayer(boardEl){
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('class', 'board-blobs');
     const defs = document.createElementNS(SVG_NS, 'defs');
+
+    const filter = document.createElementNS(SVG_NS, 'filter');
+    filter.setAttribute('id', 'goo-' + boardEl.id);
+    filter.setAttribute('x', '-50%'); filter.setAttribute('y', '-50%');
+    filter.setAttribute('width', '200%'); filter.setAttribute('height', '200%');
+    const blur = document.createElementNS(SVG_NS, 'feGaussianBlur');
+    blur.setAttribute('in', 'SourceGraphic'); blur.setAttribute('stdDeviation', '6'); blur.setAttribute('result', 'blur');
+    const matrix = document.createElementNS(SVG_NS, 'feColorMatrix');
+    matrix.setAttribute('in', 'blur');
+    matrix.setAttribute('values', '1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10');
+    filter.appendChild(blur); filter.appendChild(matrix);
+    defs.appendChild(filter);
+
     const grad = document.createElementNS(SVG_NS, 'radialGradient');
     grad.setAttribute('id', 'gemGrad-' + boardEl.id);
     grad.setAttribute('gradientUnits', 'objectBoundingBox');
@@ -49,6 +66,7 @@ window.CCB = window.CCB || {};
     stop2.setAttribute('offset', '42%'); stop2.setAttribute('stop-color', '#fff'); stop2.setAttribute('stop-opacity', '0');
     grad.appendChild(stop1); grad.appendChild(stop2);
     defs.appendChild(grad);
+
     svg.appendChild(defs);
     boardEl.appendChild(svg);
     return svg;
@@ -171,47 +189,76 @@ window.CCB = window.CCB || {};
     return cells.map(([r,c]) => r + ',' + c).sort().join(';');
   }
 
-  // 同色に繋がったセルの集合(2マス以上)を、輪郭を計算した1つのSVG図形として
-  // 個々のセルの上に重ねて描く。孤立した1マスはSVGを使わず、セル自身の丸み・ツヤ・
-  // 影だけで表示する(繋がっているものだけ「1つの塊」として上書きする形)。
+  // 同色に繋がったセルの集合(2マス以上)を、metaball(円をぼかし+コントラストで
+  // 融合させる)技法でヒョウタン状にくびれて繋がる1つの塊として、個々のセルの上に
+  // 重ねて描く。孤立した1マスはSVGを使わず、セル自身の丸み・ツヤ・影だけで表示する。
   //
   // 実測はセル1個分・盤面のスタイル情報だけにとどめ、残りは算術計算する
   // (セルごとにgetBoundingClientRectを呼ぶとレイアウト再計算が何度も走り、
   // アニメーションがカクつく=コマ送りに見える原因になるため)。
   function renderBlobs(svg, cellEls, board, prevSigs){
+    const boardEl = svg.parentElement;
     const sample = cellEls[0][0].getBoundingClientRect();
-    const boardRect = svg.parentElement.getBoundingClientRect();
-    const cs = getComputedStyle(svg.parentElement);
+    const boardRect = boardEl.getBoundingClientRect();
+    const cs = getComputedStyle(boardEl);
     const gap = parseFloat(cs.columnGap) || 0;
     const padLeft = parseFloat(cs.paddingLeft) || 0;
     const padTop = parseFloat(cs.paddingTop) || 0;
     const step = sample.width + gap;
+    const cellSize = sample.width;
+    const circleR = cellSize * 0.52; // 隙間(gap)を越えて隣の円と重なるよう気持ち大きめに
+    const boardId = boardEl.id;
 
     svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
-    Array.from(svg.querySelectorAll('path')).forEach(p => p.remove());
+    Array.from(svg.querySelectorAll('.blob-group')).forEach(g => g.remove());
+    Array.from(svg.querySelectorAll('mask')).forEach(m => m.remove());
 
     const regions = CCB.getColorRegions(board, N).filter(g => g.cells.length >= 2);
     const newSigs = new Set();
+    const defs = svg.querySelector('defs');
+    let maskIdx = 0;
     for(const region of regions){
       const sig = regionSignature(region.cells);
       newSigs.add(sig);
-      // グリッド座標(1マス=step)をピクセルpathに変換。padLeft/padTop分だけ
-      // 平行移動する(セル本体のずれは常にセル自身に覆われるため見た目に影響しない)。
-      const shiftedCells = region.cells; // regionToPathは単位=stepでそのままpx換算するので、
-      const rawPath = CCB.regionToPath(shiftedCells, step, BLOB_RADIUS);
       const isNew = !prevSigs.has(sig);
-      const g = document.createElementNS(SVG_NS, 'g');
-      g.setAttribute('transform', `translate(${padLeft} ${padTop})`);
-      g.setAttribute('class', 'blob-group' + (isNew ? ' blob-in' : ''));
+      const maskId = `blobmask-${boardId}-${maskIdx++}`;
 
-      const base = document.createElementNS(SVG_NS, 'path');
-      base.setAttribute('d', rawPath);
+      const mask = document.createElementNS(SVG_NS, 'mask');
+      mask.setAttribute('id', maskId);
+      mask.setAttribute('maskUnits', 'userSpaceOnUse');
+      const gooGroup = document.createElementNS(SVG_NS, 'g');
+      gooGroup.setAttribute('filter', `url(#goo-${boardId})`);
+      let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+      for(const [r,c] of region.cells){
+        const cx = padLeft + c*step + cellSize/2;
+        const cy = padTop + r*step + cellSize/2;
+        const circle = document.createElementNS(SVG_NS, 'circle');
+        circle.setAttribute('cx', cx); circle.setAttribute('cy', cy); circle.setAttribute('r', circleR);
+        circle.setAttribute('fill', 'white');
+        gooGroup.appendChild(circle);
+        minX = Math.min(minX, cx-circleR); maxX = Math.max(maxX, cx+circleR);
+        minY = Math.min(minY, cy-circleR); maxY = Math.max(maxY, cy+circleR);
+      }
+      mask.appendChild(gooGroup);
+      defs.appendChild(mask);
+
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('class', 'blob-group' + (isNew ? ' blob-in' : ''));
+      const pad = 4; // ぼかしがはみ出す分の余白
+      const rectX = minX - pad, rectY = minY - pad, rectW = (maxX-minX)+pad*2, rectH = (maxY-minY)+pad*2;
+
+      const base = document.createElementNS(SVG_NS, 'rect');
+      base.setAttribute('x', rectX); base.setAttribute('y', rectY);
+      base.setAttribute('width', rectW); base.setAttribute('height', rectH);
       base.setAttribute('fill', region.color);
+      base.setAttribute('mask', `url(#${maskId})`);
       g.appendChild(base);
 
-      const gloss = document.createElementNS(SVG_NS, 'path');
-      gloss.setAttribute('d', rawPath);
-      gloss.setAttribute('fill', `url(#gemGrad-${svg.parentElement.id})`);
+      const gloss = document.createElementNS(SVG_NS, 'rect');
+      gloss.setAttribute('x', rectX); gloss.setAttribute('y', rectY);
+      gloss.setAttribute('width', rectW); gloss.setAttribute('height', rectH);
+      gloss.setAttribute('fill', `url(#gemGrad-${boardId})`);
+      gloss.setAttribute('mask', `url(#${maskId})`);
       g.appendChild(gloss);
 
       svg.appendChild(g);
