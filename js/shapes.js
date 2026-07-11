@@ -83,7 +83,9 @@ window.CCB = window.CCB || {};
   function genPiece(){
     const size = pickSize();
     const cells = genShape(size);
-    const colors = cells.map(() => COLORS[Math.floor(Math.random()*COLORS.length)]);
+    // ピース内は全マス同じ色にする(色を狙って並べやすくするため)
+    const color = COLORS[Math.floor(Math.random()*COLORS.length)];
+    const colors = cells.map(() => color);
     if(Math.random() < HEAL_CHANCE){
       colors[Math.floor(Math.random()*colors.length)] = HEAL;
     }
