@@ -115,6 +115,10 @@ body::before{
 .how-to-section:last-child{ border-bottom:none; }
 .how-to-title{ font-size:13px; font-weight:bold; color:var(--accent); margin-bottom:4px; }
 .how-to-text{ font-size:12px; line-height:1.6; opacity:0.85; margin:0; }
+.how-to-img{
+  display:block; width:100%; border-radius:12px; margin-bottom:8px;
+  border:1px solid var(--line); box-shadow:0 6px 14px rgba(0,0,0,0.35);
+}
 
 #app{
   position:relative; z-index:1; max-width:480px; margin:0 auto;
