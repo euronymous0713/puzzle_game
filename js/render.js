@@ -29,17 +29,17 @@ window.CCB = window.CCB || {};
   let prevOppBoard = null;
   let prevSelfHp = null;
   let prevOppHp = null;
-  let prevSelfLinkKeys = new Set();
-  let prevOppLinkKeys = new Set();
+  let prevSelfFrameKeys = new Set();
+  let prevOppFrameKeys = new Set();
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
-  // 盤面の上に重ねる、同色で隣接するブロックの中心同士を結ぶ線を描くレイヤーを作る。
-  // ブロック自体の形は変えず(常に個別の丸いブロックのまま)、Two Dots風に
-  // 「繋がっている」ことだけを細い線で示す。
-  function createLinkLayer(boardEl){
+  // 盤面の上に重ねる、同色で隣接するブロックのまとまりの外周に薄い枠線を描く
+  // レイヤーを作る。ブロック自体の形は変えず(常に個別の丸いブロックのまま)、
+  // 「繋がっている」ことだけをグループの輪郭線で示す。
+  function createFrameLayer(boardEl){
     const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('class', 'board-links');
+    svg.setAttribute('class', 'board-frames');
     boardEl.appendChild(svg);
     return svg;
   }
@@ -59,8 +59,8 @@ window.CCB = window.CCB || {};
   }
   buildBoardDom(selfBoardEl, selfCellEls);
   buildBoardDom(oppBoardEl, oppCellEls);
-  const selfLinkSvg = createLinkLayer(selfBoardEl);
-  const oppLinkSvg = createLinkLayer(oppBoardEl);
+  const selfFrameSvg = createFrameLayer(selfBoardEl);
+  const oppFrameSvg = createFrameLayer(oppBoardEl);
 
   // 再生し終わったらクラスを外しておく一過性の演出用(他の演出クラスとの衝突を防ぐ)
   function playAnimOnce(el, className){
@@ -107,7 +107,24 @@ window.CCB = window.CCB || {};
 
   const BOARD_CELL_RADIUS = 13; // .cellのborder-radiusと合わせる
 
-  function renderBoard(cellEls, board, prevBoard){
+  // マスを1つ、消滅アニメーション付きで空にする
+  function triggerCellClear(el, color){
+    const wasHeal = color === CCB.HEAL;
+    el.classList.remove('heal-cell');
+    el.style.background = CCB.cellBg(color);
+    el.style.borderRadius = BOARD_CELL_RADIUS + 'px';
+    el.classList.remove('cell-pop');
+    playAnim(el, wasHeal ? 'heal-clear' : 'cell-clear');
+    spawnParticles(el, color);
+    el.addEventListener('animationend', function onEnd(){
+      el.style.background = '';
+      el.style.borderRadius = ''; // 空になったら四角いソケットに戻す
+      el.classList.remove('cell-clear', 'heal-clear');
+      el.removeEventListener('animationend', onEnd);
+    }, { once:true });
+  }
+
+  function renderBoard(cellEls, board, prevBoard, forcedClears){
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
         const v = board[r][c];
@@ -133,20 +150,7 @@ window.CCB = window.CCB || {};
             }, { once:true });
           }
         } else if(!v && prev){
-          // 同様の理由で、heal-cellが付いたままだとcell-clearの消滅アニメーションが
-          // 再生されず(animationendも発火せず)ブロックが消えなくなるため先に外す。
-          const wasHeal = prev === CCB.HEAL;
-          el.classList.remove('heal-cell');
-          el.style.background = CCB.cellBg(prev);
-          el.classList.remove('cell-pop');
-          playAnim(el, wasHeal ? 'heal-clear' : 'cell-clear');
-          spawnParticles(el, prev);
-          el.addEventListener('animationend', function onEnd(){
-            el.style.background = '';
-            el.style.borderRadius = ''; // 空になったら四角いソケットに戻す
-            el.classList.remove('cell-clear', 'heal-clear');
-            el.removeEventListener('animationend', onEnd);
-          }, { once:true });
+          triggerCellClear(el, prev);
         } else {
           el.style.background = CCB.cellBg(v);
           el.style.borderRadius = v ? BOARD_CELL_RADIUS + 'px' : '';
@@ -154,16 +158,30 @@ window.CCB = window.CCB || {};
         }
       }
     }
+    // 通常の差分検出は「配置前」と「配置後(消去まで反映済み)」の2状態しか見ないため、
+    // 今回置いたマスがそのターン内でそのままマッチして消えた場合は両方nullのままで
+    // 「変化なし」と判定され、消滅アニメーションが一切再生されない。そのケースだけ
+    // ここで個別に拾って消滅アニメーションを発火させる。
+    if(forcedClears){
+      for(const { r, c, color } of forcedClears){
+        const v = board[r][c];
+        const prev = prevBoard ? prevBoard[r][c] : undefined;
+        if(prev !== v) continue; // 通常の差分検出で既に処理済み
+        triggerCellClear(cellEls[r][c], color);
+      }
+    }
   }
 
-  // 同色で4方向に隣接するブロックの中心同士を、細い線で結ぶ(Two Dots風)。
-  // ブロック自体の形・色・光沢は一切変えない。前回から既にあった線は
-  // アニメーションを再生させず、新しく繋がった線だけふわっと伸びて出現させる。
+  // 同色で4方向に隣接するブロックのまとまりの外周に、薄い枠線を描く。
+  // 各マスの4辺のうち、隣が同じ色でない辺だけを線として描くことで、
+  // グループ全体の輪郭だけが浮き上がるようにする。ブロック自体の形・色・
+  // 光沢は一切変えない。前回から既にあった辺はアニメーションを再生させず、
+  // 新しく現れた辺だけふわっと出現させる。
   //
   // 実測はセル1個分・盤面のスタイル情報だけにとどめ、残りは算術計算する
   // (セルごとにgetBoundingClientRectを呼ぶとレイアウト再計算が何度も走り、
   // アニメーションがカクつく原因になるため)。
-  function renderLinks(svg, cellEls, board, prevKeys){
+  function renderFrames(svg, cellEls, board, prevKeys){
     const boardEl = svg.parentElement;
     const sample = cellEls[0][0].getBoundingClientRect();
     const boardRect = boardEl.getBoundingClientRect();
@@ -173,31 +191,33 @@ window.CCB = window.CCB || {};
     const padTop = parseFloat(cs.paddingTop) || 0;
     const step = sample.width + gap;
     const cellSize = sample.width;
-    const center = (r,c) => ({ x: padLeft + c*step + cellSize/2, y: padTop + r*step + cellSize/2 });
+    const rectOf = (r,c) => ({
+      x0: padLeft + c*step, y0: padTop + r*step,
+      x1: padLeft + c*step + cellSize, y1: padTop + r*step + cellSize,
+    });
 
     svg.setAttribute('viewBox', `0 0 ${boardRect.width} ${boardRect.height}`);
     Array.from(svg.querySelectorAll('line')).forEach(l => l.remove());
 
     const newKeys = new Set();
+    const sameColor = (r,c,v) => r>=0 && r<N && c>=0 && c<N && board[r][c]===v;
     for(let r=0;r<N;r++){
       for(let c=0;c<N;c++){
         const v = board[r][c];
         if(!v || v === CCB.HEAL) continue;
-        if(c+1<N && board[r][c+1]===v){
-          addLink('h'+r+'-'+c, center(r,c), center(r,c+1), v);
-        }
-        if(r+1<N && board[r+1][c]===v){
-          addLink('v'+r+'-'+c, center(r,c), center(r+1,c), v);
-        }
+        const box = rectOf(r,c);
+        if(!sameColor(r-1,c,v)) addEdge('t'+r+'-'+c, {x:box.x0,y:box.y0}, {x:box.x1,y:box.y0});
+        if(!sameColor(r+1,c,v)) addEdge('b'+r+'-'+c, {x:box.x0,y:box.y1}, {x:box.x1,y:box.y1});
+        if(!sameColor(r,c-1,v)) addEdge('l'+r+'-'+c, {x:box.x0,y:box.y0}, {x:box.x0,y:box.y1});
+        if(!sameColor(r,c+1,v)) addEdge('r'+r+'-'+c, {x:box.x1,y:box.y0}, {x:box.x1,y:box.y1});
       }
     }
-    function addLink(key, a, b, color){
+    function addEdge(key, a, b){
       newKeys.add(key);
       const line = document.createElementNS(SVG_NS, 'line');
       line.setAttribute('x1', a.x); line.setAttribute('y1', a.y);
       line.setAttribute('x2', b.x); line.setAttribute('y2', b.y);
-      line.setAttribute('class', 'link-line' + (prevKeys.has(key) ? '' : ' link-in'));
-      line.setAttribute('stroke', color);
+      line.setAttribute('class', 'frame-line' + (prevKeys.has(key) ? '' : ' frame-in'));
       svg.appendChild(line);
     }
     return newKeys;
@@ -271,12 +291,12 @@ window.CCB = window.CCB || {};
     });
   }
 
-  function renderAll(){
+  function renderAll(selfClearedCells, oppClearedCells){
     const state = CCB.state;
-    renderBoard(selfCellEls, state.self.board, prevSelfBoard);
-    renderBoard(oppCellEls, state.opp.board, prevOppBoard);
-    prevSelfLinkKeys = renderLinks(selfLinkSvg, selfCellEls, state.self.board, prevSelfLinkKeys);
-    prevOppLinkKeys = renderLinks(oppLinkSvg, oppCellEls, state.opp.board, prevOppLinkKeys);
+    renderBoard(selfCellEls, state.self.board, prevSelfBoard, selfClearedCells);
+    renderBoard(oppCellEls, state.opp.board, prevOppBoard, oppClearedCells);
+    prevSelfFrameKeys = renderFrames(selfFrameSvg, selfCellEls, state.self.board, prevSelfFrameKeys);
+    prevOppFrameKeys = renderFrames(oppFrameSvg, oppCellEls, state.opp.board, prevOppFrameKeys);
     prevSelfBoard = CCB.cloneBoard(state.self.board);
     prevOppBoard = CCB.cloneBoard(state.opp.board);
     renderHp();
@@ -350,9 +370,10 @@ window.CCB = window.CCB || {};
           hasTechnique: res.hasTechnique,
           over: CCB.state.over,
           winner: CCB.state.winner,
+          clearedCells: res.clearedCells,
         });
       }
-      renderAll();
+      renderAll(res.clearedCells);
     }
     return res;
   }
@@ -363,7 +384,7 @@ window.CCB = window.CCB || {};
       showSkillPopup(res.names, res.damage, res.heal, true);
       if(res.hasTechnique) flashBoard(oppBoardEl);
     }
-    renderAll();
+    renderAll(undefined, res && res.clearedCells);
     return res;
   }
 

@@ -30,10 +30,18 @@ window.CCB = window.CCB || {};
       player.tray = [genPiece(), genPiece(), genPiece()];
     }
     const groups = findGroups(player.board);
-    const result = { ok:true, damage:0, heal:0, names:[], hasTechnique:false };
+    const result = { ok:true, damage:0, heal:0, names:[], hasTechnique:false, clearedCells:[] };
     if(groups.length){
       const clearedSet = new Set();
       groups.forEach(g => g.cells.forEach(([r,c]) => clearedSet.add(r+','+c)));
+      // renderBoardは配置前後の盤面だけを見て差分描画するため、今回置いたマスが
+      // 同じターン内でそのままマッチして消えた場合、置く前も後もnullのままなので
+      // 変化なしとみなされ、消滅アニメーションが再生されない。色を記録しておき、
+      // 描画側で明示的にアニメーションさせられるようにする。
+      clearedSet.forEach(key => {
+        const [r,c] = key.split(',').map(Number);
+        result.clearedCells.push({ r, c, color: player.board[r][c] });
+      });
 
       // 消えるマスに隣接する回復ブロックを探す(重複なし)
       const healCells = [];
@@ -61,7 +69,10 @@ window.CCB = window.CCB || {};
 
       if(healCells.length){
         const healTotal = clearedSet.size * healCells.length;
-        healCells.forEach(([r,c]) => { player.board[r][c] = null; });
+        healCells.forEach(([r,c]) => {
+          result.clearedCells.push({ r, c, color: CCB.HEAL });
+          player.board[r][c] = null;
+        });
         player.hp = Math.min(player.maxHp, player.hp + healTotal);
         result.heal = healTotal;
         result.names.push('回復 +' + healTotal);
@@ -151,7 +162,7 @@ window.CCB = window.CCB || {};
         state.over = true;
         state.winner = msg.winner === 'self' ? 'opp' : 'self';
       }
-      CCB.renderAll();
+      CCB.renderAll(undefined, msg.clearedCells);
       return;
     }
 
