@@ -10,7 +10,7 @@ window.CCB = window.CCB || {};
   const TOUCH_LIFT = 130;
   // スマホ操作時、指の移動量を増幅してミノを速く動かす(盤面の端から端まで
   // 画面いっぱいに指を動かさなくて済むようにするため)。マウス操作は等倍のまま。
-  const TOUCH_SENSITIVITY = 1.8;
+  const TOUCH_SENSITIVITY = 1.5;
 
   let dragging = null;
   let lastTarget = null;
