@@ -9,9 +9,12 @@ window.CCB = window.CCB || {};
   // 一緒に消えて「消したマス数」分だけHPを回復する。
   // 通常色の緑と紛らわしくないよう、ピンク地に白いハート柄にする。
   const HEAL = 'HEAL';
-  const HEAL_COLOR = '#ff4f9a';
-  const HEAL_HEART_SVG = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 29'><path d='M16 29C16 29 0 18.2 0 8.6 0 3.5 4.1 0 8.7 0 12.2 0 15 2.1 16 5.1 17 2.1 19.8 0 23.3 0 27.9 0 32 3.5 32 8.6 32 18.2 16 29 16 29Z' fill='white'/></svg>";
-  const HEAL_BG = HEAL_COLOR + " url(\"data:image/svg+xml," + encodeURIComponent(HEAL_HEART_SVG) + "\") center/58% no-repeat";
+  const HEAL_HEART_SVG = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 29'>" +
+    "<path d='M16 29C16 29 0 18.2 0 8.6 0 3.5 4.1 0 8.7 0 12.2 0 15 2.1 16 5.1 17 2.1 19.8 0 23.3 0 27.9 0 32 3.5 32 8.6 32 18.2 16 29 16 29Z' fill='white' stroke='#ff3d90' stroke-width='1'/>" +
+    "<ellipse cx='10.5' cy='7.5' rx='3' ry='1.8' fill='white' fill-opacity='0.85' transform='rotate(-30 10.5 7.5)'/>" +
+    "</svg>";
+  const HEAL_GRADIENT = 'linear-gradient(145deg, #ff9ed2, #ff3d90 65%, #e0257a)';
+  const HEAL_BG = 'url("data:image/svg+xml,' + encodeURIComponent(HEAL_HEART_SVG) + '") center/58% no-repeat, ' + HEAL_GRADIENT;
   const HEAL_CHANCE = 1/3; // ミノ1個ごとに独立でこの確率(上限なし)
   function cellBg(v){
     if(!v) return '';

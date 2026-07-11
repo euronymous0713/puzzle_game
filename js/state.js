@@ -136,7 +136,7 @@ window.CCB = window.CCB || {};
       state.opp.board = msg.board;
       if(msg.damage > 0){
         state.self.hp = Math.max(0, state.self.hp - msg.damage);
-        CCB.showSkillPopup(msg.names, msg.damage, true);
+        CCB.showSkillPopup(msg.names, msg.damage, msg.heal, true);
       }
       if(msg.heal > 0){
         state.opp.hp = Math.min(state.opp.maxHp, state.opp.hp + msg.heal);

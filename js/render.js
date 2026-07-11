@@ -16,6 +16,7 @@ window.CCB = window.CCB || {};
   const skillPopupEl = document.getElementById('skillPopup');
   const skillLinesEl = document.getElementById('skillLines');
   const skillDamageEl = document.getElementById('skillDamage');
+  const skillHealEl = document.getElementById('skillHeal');
   const overlayEl = document.getElementById('overlay');
   const overlayTitleEl = document.getElementById('overlayTitle');
   const rematchStatusEl = document.getElementById('rematchStatus');
@@ -75,13 +76,14 @@ window.CCB = window.CCB || {};
         } else if(!v && prev){
           // 同様の理由で、heal-cellが付いたままだとcell-clearの消滅アニメーションが
           // 再生されず(animationendも発火せず)ブロックが消えなくなるため先に外す。
+          const wasHeal = prev === CCB.HEAL;
           el.classList.remove('heal-cell');
           el.style.background = CCB.cellBg(prev);
           el.classList.remove('cell-pop');
-          playAnim(el, 'cell-clear');
+          playAnim(el, wasHeal ? 'heal-clear' : 'cell-clear');
           el.addEventListener('animationend', function onEnd(){
             el.style.background = '';
-            el.classList.remove('cell-clear');
+            el.classList.remove('cell-clear', 'heal-clear');
             el.removeEventListener('animationend', onEnd);
           }, { once:true });
         } else {
@@ -187,7 +189,7 @@ window.CCB = window.CCB || {};
   }
 
   let skillTimer = null;
-  function showSkillPopup(names, damage, isEnemy){
+  function showSkillPopup(names, damage, heal, isEnemy){
     clearTimeout(skillTimer);
     skillLinesEl.innerHTML = '';
     names.forEach((name, i) => {
@@ -203,6 +205,12 @@ window.CCB = window.CCB || {};
     } else {
       skillDamageEl.style.display = 'none';
     }
+    if(heal > 0){
+      skillHealEl.textContent = '+' + heal;
+      skillHealEl.style.display = '';
+    } else {
+      skillHealEl.style.display = 'none';
+    }
     skillPopupEl.classList.toggle('enemy', !!isEnemy);
     skillPopupEl.classList.toggle('mega', damage >= 25);
     playAnim(skillPopupEl, 'show');
@@ -212,7 +220,7 @@ window.CCB = window.CCB || {};
   function commitSelfPlacement(idx, r, c){
     const res = CCB.playerAction('self', idx, r, c);
     if(res.ok){
-      if(res.names.length) showSkillPopup(res.names, res.damage, false);
+      if(res.names.length) showSkillPopup(res.names, res.damage, res.heal, false);
       if(CCB.mode === 'online'){
         CCB.net.send({
           type: 'move',
@@ -232,7 +240,7 @@ window.CCB = window.CCB || {};
   function commitAiTick(){
     const res = CCB.aiTick();
     if(res && res.ok && res.names.length){
-      showSkillPopup(res.names, res.damage, true);
+      showSkillPopup(res.names, res.damage, res.heal, true);
     }
     renderAll();
     return res;
