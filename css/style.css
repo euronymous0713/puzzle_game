@@ -162,16 +162,15 @@ body::before{
   box-shadow:0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02) inset;
 }
 .cell-bridge{ position:absolute; pointer-events:none; z-index:1; transform-origin:center; }
-.cell-bridge.bridge-in{ animation:bridgeIn .32s cubic-bezier(.34,1.6,.64,1); }
+.cell-bridge.bridge-in{ animation:bridgeIn .38s ease-out; }
 @keyframes bridgeIn{
-  0%{ opacity:0; transform:scale(0.3); }
-  60%{ opacity:1; transform:scale(1.15); }
+  0%{ opacity:0; transform:scale(0.5); }
   100%{ opacity:1; transform:scale(1); }
 }
-.cell.connect-squish{ animation:connectSquish .3s cubic-bezier(.34,1.6,.64,1); }
+.cell.connect-squish{ animation:connectSquish .38s ease-out; }
 @keyframes connectSquish{
   0%{ transform:scale(1); }
-  40%{ transform:scale(1.12); }
+  35%{ transform:scale(1.05); }
   100%{ transform:scale(1); }
 }
 .board.board-flash{ animation:boardFlash .45s ease-out; }
@@ -187,7 +186,7 @@ body::before{
 .cell{
   background:#15132a; border-radius:13px; transform-origin:center;
   box-shadow:inset 0 1px 2px rgba(0,0,0,0.45), inset 0 -1px 1px rgba(255,255,255,0.06);
-  transition:background .15s, border-radius .28s cubic-bezier(.34,1.4,.64,1);
+  transition:background .15s;
 }
 .cell.preview-valid{ box-shadow:inset 0 0 0 2px var(--mint); opacity:0.85; }
 .cell.preview-invalid{ box-shadow:inset 0 0 0 2px var(--pink); opacity:0.45; filter:grayscale(0.5); }
